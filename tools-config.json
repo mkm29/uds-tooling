@@ -1,0 +1,174 @@
+{
+  "tools": {
+    "uds": {
+      "name": "UDS CLI",
+      "version": "v0.27.7",
+      "description": "UDS (Unicorn Delivery Service) CLI for managing deployments",
+      "url_pattern": "https://github.com/defenseunicorns/uds-cli/releases/download/{version}/uds-cli_{version}_{os}_{arch}",
+      "filetype": "binary",
+      "os_mapping": {
+        "darwin": "Darwin",
+        "linux": "Linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "uds",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "uds",
+        "org.opencontainers.image.description": "UDS CLI {version}",
+        "dev.defenseunicorns.tool.version": "{version}"
+      },
+      "media_type": "application/vnd.uds.cli"
+    },
+    "helm": {
+      "name": "Helm",
+      "version": "v3.18.3",
+      "description": "The Kubernetes Package Manager",
+      "url_pattern": "https://get.helm.sh/helm-{version}-{os}-{arch}.tar.gz",
+      "filetype": "tar.gz",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "extract_path": "{os}-{arch}/helm",
+      "executable_name": "helm",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "helm",
+        "org.opencontainers.image.description": "Helm {version}",
+        "io.helm.version": "{version}"
+      },
+      "media_type": "application/vnd.helm.cli"
+    },
+    "cilium": {
+      "name": "Cilium CLI",
+      "version": "v0.18.4",
+      "description": "CLI for Cilium CNI",
+      "url_pattern": "https://github.com/cilium/cilium-cli/releases/download/{version}/cilium-{os}-{arch}.tar.gz",
+      "filetype": "tar.gz",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "cilium",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "cilium",
+        "org.opencontainers.image.description": "Cilium CLI {version}",
+        "io.cilium.version": "{version}"
+      },
+      "media_type": "application/vnd.cilium.cli"
+    },
+    "hubble": {
+      "name": "Hubble CLI",
+      "version": "v1.17.5",
+      "description": "CLI for Hubble network observability",
+      "url_pattern": "https://github.com/cilium/hubble/releases/download/{version}/hubble-{os}-{arch}.tar.gz",
+      "filetype": "tar.gz",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "hubble",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "hubble",
+        "org.opencontainers.image.description": "Hubble CLI {version}",
+        "io.cilium.hubble.version": "{version}"
+      },
+      "media_type": "application/vnd.cilium.hubble.cli"
+    },
+    "k3d": {
+      "name": "k3d",
+      "version": "v5.8.3",
+      "description": "k3d creates k3s clusters in containers",
+      "url_pattern": "https://github.com/k3d-io/k3d/releases/download/{version}/k3d-{os}-{arch}",
+      "filetype": "binary",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "k3d",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "k3d",
+        "org.opencontainers.image.description": "k3d {version}",
+        "io.k3d.version": "{version}"
+      },
+      "media_type": "application/vnd.k3d.cli"
+    },
+    "kubectl": {
+      "name": "kubectl",
+      "version": "v1.33.2",
+      "description": "Kubernetes command-line tool",
+      "url_pattern": "https://dl.k8s.io/release/{version}/bin/{os}/{arch}/kubectl",
+      "filetype": "binary",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "kubectl",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "kubectl",
+        "org.opencontainers.image.description": "kubectl {version}",
+        "io.k8s.kubectl.version": "{version}"
+      },
+      "media_type": "application/vnd.kubernetes.kubectl"
+    },
+    "k9s": {
+      "name": "k9s",
+      "version": "v0.50.6",
+      "description": "Kubernetes CLI to manage your clusters in style",
+      "url_pattern": "https://github.com/derailed/k9s/releases/download/{version}/k9s_{os}_{arch}.tar.gz",
+      "filetype": "tar.gz",
+      "os_mapping": {
+        "darwin": "Darwin",
+        "linux": "Linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "k9s",
+      "extract_files": ["k9s"],
+      "oci_annotations": {
+        "org.opencontainers.image.title": "k9s",
+        "org.opencontainers.image.description": "k9s {version}",
+        "io.k9s.version": "{version}"
+      },
+      "media_type": "application/vnd.k9s.cli"
+    }
+  },
+  "artifact": {
+    "registry": "ghcr.io",
+    "namespace": "mkm29",
+    "repository": "uds-tooling/tools",
+    "default_tag": "v1.0.0",
+    "platforms": ["linux/amd64", "linux/arm64"],
+    "manifest_annotations": {
+      "org.opencontainers.image.title": "UDS k3d Cilium Tools",
+      "org.opencontainers.image.description": "CLI tools for UDS k3d Cilium deployment",
+      "org.opencontainers.image.source": "https://github.com/mkm29/uds-tooling",
+      "org.opencontainers.image.authors": "UDS k3d Cilium Maintainers",
+      "org.opencontainers.image.licenses": "Apache-2.0"
+    }
+  }
+}

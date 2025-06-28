@@ -1,0 +1,190 @@
+name: Release Artifacts
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag for the artifacts'
+        required: true
+        default: 'v1.0.0'
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ${{ github.repository_owner }}
+  REPOSITORY: ${{ github.event.repository.name }}/tools
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Determine tag
+        id: determine-tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Display build information
+        run: |
+          echo "Building and pushing tools artifact for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}"
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Namespace: ${{ env.NAMESPACE }}"
+          echo "Repository: ${{ env.REPOSITORY }}"
+          echo "Tag: ${{ steps.determine-tag.outputs.TAG }}"
+
+      - name: Build artifacts
+        env:
+          BUILD_OS: ${{ matrix.platform.os }}
+          BUILD_ARCH: ${{ matrix.platform.arch }}
+          TAG: ${{ steps.determine-tag.outputs.TAG }}
+          BUILD_ONLY: "true"
+        run: |
+          ./bin/build.sh
+
+      - name: Push ORAS artifacts
+        env:
+          TAG: ${{ steps.determine-tag.outputs.TAG }}
+        run: |
+          cd "build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
+          
+          ARTIFACT="${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
+          
+          # Build oras push command
+          push_cmd="oras push \"${ARTIFACT}\""
+          push_cmd+=" --annotation-file manifest-annotations.json"
+          push_cmd+=" --annotation-file file-annotations.json"
+          push_cmd+=" --config config.json:application/vnd.oci.image.config.v1+json"
+          
+          # Add each tool with its media type
+          for tool in $(jq -r '.tools | keys[]' ../../tools-config.json); do
+            executable_name=$(jq -r ".tools.${tool}.executable_name" ../../tools-config.json)
+            media_type=$(jq -r ".tools.${tool}.media_type" ../../tools-config.json)
+            if [ -f "${executable_name}" ]; then
+              push_cmd+=" \"${executable_name}:${media_type}\""
+            fi
+          done
+          
+          echo "Pushing to: ${ARTIFACT}"
+          eval "$push_cmd"
+
+      - name: Create artifact summary
+        run: |
+          TAG="${{ steps.determine-tag.outputs.TAG }}"
+          PLATFORM="${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
+          
+          echo "## Build Summary for ${PLATFORM}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully built and pushed ORAS artifact:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-${PLATFORM}\`" >> $GITHUB_STEP_SUMMARY
+
+  create-release:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine tag
+        id: determine-tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release Notes
+        run: |
+          TAG="${{ steps.determine-tag.outputs.TAG }}"
+          
+          cat > release-notes.md << EOF
+          ## UDS Tools OCI Artifact ${TAG}
+          
+          This release contains CLI tools packaged as OCI artifacts for Linux platforms.
+          
+          ### Artifacts
+          
+          Platform-specific artifacts are available at:
+          - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64\`
+          - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64\`
+          
+          ### Installation
+          
+          #### Quick Install (Recommended)
+          \`\`\`bash
+          # One-line install
+          curl -sL https://raw.githubusercontent.com/${{ github.repository }}/${TAG}/bin/install.sh | bash
+          \`\`\`
+          
+          #### Manual Install with ORAS
+          \`\`\`bash
+          # Install ORAS
+          brew install oras  # macOS
+          # or see https://oras.land/docs/installation
+          
+          # Pull for your platform
+          oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64
+          # or
+          oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64
+          \`\`\`
+          
+          ### Tools Included
+          
+          EOF
+          
+          # Add tool versions
+          for tool in $(jq -r '.tools | keys[]' tools-config.json); do
+            tool_name=$(jq -r ".tools.${tool}.name" tools-config.json)
+            version=$(jq -r ".tools.${tool}.version" tools-config.json)
+            description=$(jq -r ".tools.${tool}.description" tools-config.json)
+            echo "- **${tool_name}** (${version}): ${description}" >> release-notes.md
+          done
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false

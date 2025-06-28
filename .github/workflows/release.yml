@@ -1,0 +1,190 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Release Please
+        uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: simple
+          
+  build-and-push:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set up environment
+        run: |
+          echo "TAG=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_ENV
+          echo "REGISTRY=ghcr.io" >> $GITHUB_ENV
+          echo "NAMESPACE=${{ github.repository_owner }}" >> $GITHUB_ENV
+          echo "REPOSITORY=${{ github.event.repository.name }}/tools" >> $GITHUB_ENV
+          
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+          
+      - name: Install dependencies
+        run: |
+          # Install jq
+          sudo apt-get update
+          sudo apt-get install -y jq
+          
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+      - name: Build and push ORAS artifacts
+        run: |
+          # Set platform-specific variables
+          PLATFORM="${{ matrix.platform }}"
+          OS=$(echo $PLATFORM | cut -d'/' -f1)
+          ARCH=$(echo $PLATFORM | cut -d'/' -f2)
+          
+          # Export for build script
+          export PLATFORMS="$PLATFORM"
+          export TAG="${{ needs.release-please.outputs.tag_name }}"
+          export REGISTRY="ghcr.io"
+          export NAMESPACE="${{ github.repository_owner }}"
+          export REPOSITORY="${{ github.event.repository.name }}/tools"
+          
+          # Run build script
+          ./bin/build.sh
+          
+      - name: Create multi-platform manifest
+        if: matrix.platform == 'linux/amd64'  # Only run once
+        run: |
+          # Wait for arm64 build to complete
+          sleep 30
+          
+          # Create a manifest that points to both platform-specific artifacts
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          REGISTRY="ghcr.io"
+          NAMESPACE="${{ github.repository_owner }}"
+          REPOSITORY="${{ github.event.repository.name }}/tools"
+          
+          # Verify both platform artifacts exist
+          oras manifest fetch "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}-linux-amd64" || exit 1
+          oras manifest fetch "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}-linux-arm64" || exit 1
+          
+          echo "✅ Both platform-specific artifacts have been pushed successfully"
+          
+  create-release-artifacts:
+    needs: [release-please, build-and-push]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+          
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+      - name: Pull and package artifacts
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          REGISTRY="ghcr.io"
+          NAMESPACE="${{ github.repository_owner }}"
+          REPOSITORY="${{ github.event.repository.name }}/tools"
+          
+          # Pull artifacts for each platform
+          for platform in linux-amd64 linux-arm64; do
+            echo "Pulling ${platform} artifacts..."
+            mkdir -p "tools-${platform}"
+            oras pull "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}-${platform}" \
+              -o "tools-${platform}"
+            
+            # Create tarball
+            tar -czf "uds-tools-${TAG}-${platform}.tar.gz" -C "tools-${platform}" .
+          done
+          
+          # Create checksums
+          sha256sum uds-tools-*.tar.gz > checksums.txt
+          
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: |
+            uds-tools-*.tar.gz
+            checksums.txt
+            bin/install.sh
+            bin/use-tools-artifact.sh
+          
+      - name: Update release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          append_body: true
+          body: |
+            
+            ## 📦 Installation
+            
+            ### Quick Install (Recommended)
+            ```bash
+            curl -sL https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/bin/install.sh | bash
+            ```
+            
+            ### Manual Installation
+            
+            1. Download the appropriate tarball for your platform:
+               - Linux AMD64: `uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-amd64.tar.gz`
+               - Linux ARM64: `uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-arm64.tar.gz`
+            
+            2. Extract and install:
+               ```bash
+               tar -xzf uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-amd64.tar.gz
+               sudo cp bin/* /usr/local/bin/
+               ```
+            
+            ### Using ORAS (Container Registry)
+            ```bash
+            # Linux AMD64
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-amd64
+            
+            # Linux ARM64
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-arm64
+            ```
+            
+            ## 🔧 Included Tools
+            - UDS CLI v0.27.7
+            - Helm v3.18.3
+            - Cilium CLI v0.18.4
+            - Hubble CLI v1.17.5
+            - k3d v5.8.3
+            - kubectl v1.33.2
+            - k9s v0.50.6
+            
+            ## 📝 Checksums
+            See `checksums.txt` in the release assets for SHA256 checksums of all files.

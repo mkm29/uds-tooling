@@ -1,0 +1,146 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  merge_group:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ${{ github.repository_owner }}
+  REPOSITORY: ${{ github.event.repository.name }}/tools
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          version: 1.2.0
+
+      - name: Install dependencies
+        run: |
+          # Install jq if not present
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
+      - name: Determine test tag
+        id: determine-tag
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "TAG=pr-${{ github.event.number }}-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "merge_group" ]; then
+            echo "TAG=merge-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=test-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Display build information
+        run: |
+          echo "Building tools artifact for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}"
+          echo "Test Tag: ${{ steps.determine-tag.outputs.TAG }}"
+          echo ""
+          echo "Tool versions:"
+          for tool in $(jq -r '.tools | keys[]' tools-config.json); do
+            tool_name=$(jq -r ".tools.${tool}.name" tools-config.json)
+            version=$(jq -r ".tools.${tool}.version" tools-config.json)
+            echo "  ${tool_name}: ${version}"
+          done
+
+      - name: Build artifacts
+        env:
+          BUILD_OS: ${{ matrix.platform.os }}
+          BUILD_ARCH: ${{ matrix.platform.arch }}
+          TAG: ${{ steps.determine-tag.outputs.TAG }}
+          BUILD_ONLY: "true"
+        run: |
+          # The build script will:
+          # 1. Download all tools for the specified platform
+          # 2. Create directory structure
+          # 3. Skip pushing (BUILD_ONLY=true)
+          ./bin/build.sh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tools-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}/
+          retention-days: 7
+
+      - name: Test executables
+        if: matrix.platform.arch == 'amd64'
+        run: |
+          echo "Testing executables for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}..."
+          cd build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          
+          # Make all tools executable
+          chmod +x *
+          
+          # Test each tool
+          for tool in $(jq -r '.tools | keys[]' ../../tools-config.json); do
+            executable_name=$(jq -r ".tools.${tool}.executable_name" ../../tools-config.json)
+            if [ -f "${executable_name}" ]; then
+              echo "✓ ${executable_name} exists"
+              # Try to get version (some tools might not work in minimal environment)
+              ./${executable_name} version 2>/dev/null || echo "  (version check failed - this is expected in CI)"
+            else
+              echo "✗ ${executable_name} missing"
+              exit 1
+            fi
+          done
+
+  validate-json:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate tools-config.json
+        run: |
+          echo "Validating tools-config.json..."
+          jq empty tools-config.json
+          echo "✓ JSON is valid"
+          
+          # Check required fields
+          echo ""
+          echo "Checking tool configurations..."
+          for tool in $(jq -r '.tools | keys[]' tools-config.json); do
+            echo -n "  Checking ${tool}... "
+            jq -e ".tools.${tool} | .name and .version and .url_pattern and .executable_name" tools-config.json > /dev/null
+            if [ $? -eq 0 ]; then
+              echo "✓"
+            else
+              echo "✗ Missing required fields"
+              exit 1
+            fi
+          done
+
+  lint-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: './bin'
+          severity: warning

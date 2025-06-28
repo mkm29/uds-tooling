@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck jq
+
+      - name: Lint shell scripts
+        run: |
+          echo "::group::Linting shell scripts"
+          for script in *.sh; do
+            if [ -f "$script" ]; then
+              echo "Checking $script..."
+              shellcheck -x "$script"
+            fi
+          done
+          echo "::endgroup::"
+
+      - name: Validate JSON
+        run: |
+          echo "::group::Validating JSON files"
+          for json in *.json; do
+            if [ -f "$json" ]; then
+              echo "Checking $json..."
+              jq empty "$json"
+              echo "✓ $json is valid"
+            fi
+          done
+          echo "::endgroup::"
+
+      - name: Check file permissions
+        run: |
+          echo "::group::Checking file permissions"
+          for script in *.sh; do
+            if [ -f "$script" ]; then
+              if [ ! -x "$script" ]; then
+                echo "Warning: $script is not executable"
+                echo "Run: chmod +x $script"
+              else
+                echo "✓ $script is executable"
+              fi
+            fi
+          done
+          echo "::endgroup::"
+
+  markdown-lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint Markdown files
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            **/*.md
+            !**/node_modules
+            !**/vendor
+
+  test-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test common.sh functions
+        run: |
+          echo "::group::Testing common.sh functions"
+          
+          # Source the script
+          source ./common.sh
+          
+          # Test command_exists function
+          if command_exists bash; then
+            echo "✓ command_exists function works"
+          else
+            echo "✗ command_exists function failed"
+            exit 1
+          fi
+          
+          # Test detect_platform function
+          platform=$(detect_platform)
+          echo "✓ Platform detected: $platform"
+          
+          # Test load_tools_config function
+          if load_tools_config; then
+            echo "✓ Configuration loaded successfully"
+          else
+            echo "✗ Failed to load configuration"
+            exit 1
+          fi
+          
+          # Test get_all_tools function
+          tools=$(get_all_tools)
+          echo "✓ Tools found: $(echo $tools | tr '\n' ' ')"
+          
+          echo "::endgroup::"
+
+      - name: Test URL generation
+        run: |
+          echo "::group::Testing URL generation"
+          
+          source ./common.sh
+          load_tools_config
+          
+          # Test URL generation for each tool
+          for tool in $(get_all_tools); do
+            echo "Testing $tool..."
+            url=$(build_tool_url "$tool" "linux" "amd64")
+            if [ -n "$url" ]; then
+              echo "  ✓ Generated URL: $url"
+            else
+              echo "  ✗ Failed to generate URL"
+              exit 1
+            fi
+          done
+          
+          echo "::endgroup::"
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD

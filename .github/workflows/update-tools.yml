@@ -1,0 +1,173 @@
+name: Update Tool Versions
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Specific tool to update (leave empty to check all)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - 'uds'
+          - 'helm'
+          - 'cilium'
+          - 'hubble'
+          - 'k3d'
+          - 'kubectl'
+          - 'k9s'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
+      - name: Check for tool updates
+        id: check-updates
+        run: |
+          # Function to get latest version from GitHub releases
+          get_github_latest_version() {
+            local repo=$1
+            curl -s "https://api.github.com/repos/${repo}/releases/latest" | jq -r '.tag_name // empty'
+          }
+          
+          # Function to get latest kubectl version
+          get_kubectl_latest_version() {
+            curl -s https://dl.k8s.io/release/stable.txt
+          }
+          
+          # Load current versions
+          updates_found=false
+          update_summary=""
+          
+          # Define tool repositories
+          declare -A tool_repos=(
+            ["uds"]="defenseunicorns/uds-cli"
+            ["helm"]="helm/helm"
+            ["cilium"]="cilium/cilium-cli"
+            ["hubble"]="cilium/hubble"
+            ["k3d"]="k3d-io/k3d"
+            ["k9s"]="derailed/k9s"
+          )
+          
+          # Check specific tool or all tools
+          if [ -n "${{ github.event.inputs.tool }}" ]; then
+            tools=("${{ github.event.inputs.tool }}")
+          else
+            tools=($(jq -r '.tools | keys[]' tools-config.json))
+          fi
+          
+          # Check each tool
+          for tool in "${tools[@]}"; do
+            current_version=$(jq -r ".tools.${tool}.version" tools-config.json)
+            tool_name=$(jq -r ".tools.${tool}.name" tools-config.json)
+            
+            echo "Checking $tool_name..."
+            echo "  Current version: $current_version"
+            
+            # Get latest version based on tool
+            if [ "$tool" == "kubectl" ]; then
+              latest_version=$(get_kubectl_latest_version)
+            else
+              repo="${tool_repos[$tool]}"
+              if [ -n "$repo" ]; then
+                latest_version=$(get_github_latest_version "$repo")
+              else
+                echo "  ⚠️  Unknown tool repository for $tool"
+                continue
+              fi
+            fi
+            
+            if [ -z "$latest_version" ]; then
+              echo "  ⚠️  Failed to fetch latest version"
+              continue
+            fi
+            
+            echo "  Latest version: $latest_version"
+            
+            # Compare versions (simple string comparison)
+            if [ "$current_version" != "$latest_version" ]; then
+              echo "  ✅ Update available!"
+              updates_found=true
+              update_summary="${update_summary}- **${tool_name}**: ${current_version} → ${latest_version}\n"
+              
+              # Update the version in tools-config.json
+              jq ".tools.${tool}.version = \"${latest_version}\"" tools-config.json > tools-config.json.tmp
+              mv tools-config.json.tmp tools-config.json
+            else
+              echo "  ✓ Already up to date"
+            fi
+            echo ""
+          done
+          
+          # Save results
+          echo "updates_found=$updates_found" >> $GITHUB_OUTPUT
+          echo "update_summary<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$update_summary" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create pull request
+        if: steps.check-updates.outputs.updates_found == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update tool versions'
+          title: 'chore: Update tool versions'
+          body: |
+            ## Tool Version Updates
+            
+            This PR updates the following tool versions to their latest releases:
+            
+            ${{ steps.check-updates.outputs.update_summary }}
+            
+            ### Changes
+            - Updated `tools-config.json` with new versions
+            
+            ### Testing
+            - [ ] CI tests pass
+            - [ ] Tools download successfully
+            - [ ] ORAS artifacts build correctly
+            
+            ---
+            *This PR was automatically generated by the update-tools workflow.*
+          branch: update-tools-${{ github.run_number }}
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Tool Version Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check-updates.outputs.updates_found }}" == "true" ]; then
+            echo "### Updates Found:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.check-updates.outputs.update_summary }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A pull request has been created with these updates." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "All tools are up to date! ✅" >> $GITHUB_STEP_SUMMARY
+          fi

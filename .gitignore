@@ -1,0 +1,98 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.bak
+.project
+.settings/
+.classpath
+*.sublime-workspace
+*.sublime-project
+CLAUDE.md
+.claude/
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# Build artifacts and downloads
+build/
+dist/
+downloads/
+artifacts/
+*.tar.gz
+*.tar
+*.zip
+*.tgz
+
+# Tool binaries (downloaded during build process)
+tools/
+bin/
+.local/
+
+# ORAS specific
+.oras/
+oras-cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Credentials and secrets
+*_token
+*_key
+*.pem
+*.key
+credentials
+secrets/
+
+# Log files
+*.log
+logs/
+*.out
+*.err
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Test coverage
+coverage/
+*.cover
+.coverage
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Platform-specific binaries
+uds
+helm
+cilium
+hubble
+k3d
+kubectl
+k9s
+
+# Custom ignore patterns
+.cache/
+.tmp/
+*.bak.*
+debug/

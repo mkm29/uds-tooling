@@ -1,0 +1,209 @@
+name: Test Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'build.sh'
+      - 'common.sh'
+      - 'install.sh'
+      - 'use-tools-artifact.sh'
+      - 'tools-config.json'
+      - '.github/workflows/test-pr.yml'
+
+jobs:
+  validate-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Validate shell scripts
+        run: |
+          echo "Validating shell scripts..."
+          for script in build.sh common.sh install.sh use-tools-artifact.sh; do
+            echo "Checking $script..."
+            shellcheck -x "$script" || exit 1
+          done
+
+      - name: Validate JSON configuration
+        run: |
+          echo "Validating tools-config.json..."
+          if ! jq empty tools-config.json 2>/dev/null; then
+            echo "Error: Invalid JSON in tools-config.json"
+            exit 1
+          fi
+          
+          # Check required fields for each tool
+          echo "Checking tool configurations..."
+          for tool in $(jq -r '.tools | keys[]' tools-config.json); do
+            echo "  Checking $tool..."
+            
+            # Check required fields
+            for field in name version description url_pattern filetype executable_name media_type; do
+              value=$(jq -r ".tools.${tool}.${field} // empty" tools-config.json)
+              if [ -z "$value" ]; then
+                echo "    Error: Missing required field '${field}' for tool '${tool}'"
+                exit 1
+              fi
+            done
+            
+            # Check OS and arch mappings
+            if ! jq -e ".tools.${tool}.os_mapping" tools-config.json >/dev/null; then
+              echo "    Error: Missing os_mapping for tool '${tool}'"
+              exit 1
+            fi
+            
+            if ! jq -e ".tools.${tool}.arch_mapping" tools-config.json >/dev/null; then
+              echo "    Error: Missing arch_mapping for tool '${tool}'"
+              exit 1
+            fi
+          done
+          
+          echo "✓ All tool configurations are valid"
+
+  test-download:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tool: [uds, helm, cilium, hubble, k3d, kubectl, k9s]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          if ! command -v jq &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y jq
+          fi
+
+      - name: Test tool download
+        run: |
+          # Source common functions
+          source ./common.sh
+          
+          # Load configuration
+          load_tools_config
+          
+          # Test downloading the tool
+          tool="${{ matrix.tool }}"
+          echo "Testing download for: $tool"
+          
+          # Get tool properties
+          tool_name=$(get_tool_property "$tool" "name")
+          version=$(get_tool_property "$tool" "version")
+          filetype=$(get_tool_property "$tool" "filetype")
+          executable_name=$(get_tool_property "$tool" "executable_name")
+          
+          echo "Tool: $tool_name"
+          echo "Version: $version"
+          echo "File type: $filetype"
+          echo "Executable: $executable_name"
+          
+          # Build URL for linux/amd64
+          url=$(build_tool_url "$tool" "linux" "amd64")
+          echo "Download URL: $url"
+          
+          # Create temp directory
+          temp_dir=$(mktemp -d)
+          trap "rm -rf $temp_dir" EXIT
+          
+          # Download tool
+          case "$filetype" in
+            "binary")
+              if download_with_retry "$url" "$temp_dir/$executable_name"; then
+                echo "✓ Successfully downloaded $tool_name"
+                chmod +x "$temp_dir/$executable_name"
+                ls -la "$temp_dir/$executable_name"
+              else
+                echo "✗ Failed to download $tool_name"
+                exit 1
+              fi
+              ;;
+            "tar.gz")
+              if download_with_retry "$url" "$temp_dir/$tool.tar.gz"; then
+                echo "✓ Successfully downloaded $tool_name archive"
+                
+                # Test extraction
+                extract_path=$(get_tool_property "$tool" "extract_path")
+                extract_files=$(get_tool_property "$tool" "extract_files")
+                
+                if [ -n "$extract_path" ]; then
+                  # Extract and find specific file
+                  tar -tzf "$temp_dir/$tool.tar.gz" | head -10
+                elif [ -n "$extract_files" ]; then
+                  # Extract specific files
+                  tar -xzf "$temp_dir/$tool.tar.gz" -C "$temp_dir" $(jq -r ".tools.${tool}.extract_files[]" tools-config.json 2>/dev/null || echo "")
+                  ls -la "$temp_dir/"
+                else
+                  # List archive contents
+                  tar -tzf "$temp_dir/$tool.tar.gz" | head -10
+                fi
+              else
+                echo "✗ Failed to download $tool_name"
+                exit 1
+              fi
+              ;;
+          esac
+          
+          echo "✓ Download test passed for $tool_name"
+
+  test-installer:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test installer script
+        run: |
+          # Test the installer in dry-run mode (if supported)
+          # For now, just validate that it can be sourced and basic functions work
+          
+          # Create a test environment
+          export HOME=$(mktemp -d)
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Test that installer can detect missing dependencies
+          if ! command -v oras &> /dev/null; then
+            echo "✓ ORAS not installed (expected for test)"
+          fi
+          
+          if ! command -v jq &> /dev/null; then
+            echo "✓ jq might not be installed (expected for test)"
+          fi
+          
+          # Check installer syntax
+          bash -n install.sh
+          echo "✓ Installer script syntax is valid"
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
