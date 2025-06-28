@@ -3,43 +3,35 @@
 This directory contains scripts to create and use an OCI artifact that bundles all the CLI tools required to run UDS (with flexible tools configuration for extendibility).
 
 📚 **First time?** See the [First-Time Setup Guide](SETUP.md) for detailed instructions.
+
 ## What's Included
 
 The OCI artifact contains the following tools (configured in `tools-config.json`):
+
 - **UDS CLI** (v0.27.7): Defense Unicorns UDS CLI
-
 - **Helm** (v3.18.3): Kubernetes package manager
-
 - **Cilium CLI** (v0.18.4): Cilium CNI management tool
-
 - **Hubble CLI** (v1.17.5): Hubble observability CLI for network flows
-
 - **k3d** (v5.8.3): Lightweight Kubernetes in Docker
-
 - **kubectl** (v1.33.2): Kubernetes command-line tool
-
 - **k9s** (v0.50.6): Terminal-based Kubernetes UI
 
 Tool versions and metadata are centrally managed in the `tools-config.json` file.
+
 ## Prerequisites
+
 - Access to a container registry (e.g., GitHub Container Registry)
-
 - Authentication to your registry (see [Authentication](#authentication) section)
-
 - ORAS CLI for building and pulling artifacts (auto-installed by installer script)
-
 - `jq` for JSON parsing (auto-installed by installer script)
-
-**Note**: The one-line installer (`install.sh`) will check for ORAS and jq and offer to install them automatically:
-
+  - **Note**: The one-line installer (`install.sh`) will check for ORAS and jq and offer to install them automatically:
 - macOS: Uses Homebrew to install dependencies
-
 - Linux: Downloads binaries from GitHub releases
-
 - All tools are installed to `$HOME/.local/bin` (no sudo required)
-
 - The installer will remind you to add `$HOME/.local/bin` to your PATH if needed
+
 ## Authentication
+
 ### GitHub Container Registry (ghcr.io)
 
 1. **Create a Personal Access Token (PAT)**:
@@ -61,7 +53,9 @@ Tool versions and metadata are centrally managed in the `tools-config.json` file
    ```
 
 For more details, see the [official GitHub documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
 ## Building the Tools Artifact
+
 ### Build ORAS Artifact (Native OCI artifacts - Linux only)
 
 ```bash
@@ -86,7 +80,8 @@ CILIUM_CLI_VERSION=v0.18.4 \
 
 # Build single platform for CI/CD
 BUILD_OS=linux BUILD_ARCH=amd64 BUILD_ONLY=true ./bin/build.sh
-```
+
+```bash
 This creates proper OCI artifacts with file annotations that ORAS can pull directly.
 **Note**:
 - ORAS artifacts only include Linux binaries (linux/amd64, linux/arm64) since OCI registries are primarily for container images that run on Linux.
@@ -117,7 +112,8 @@ export CR_PAT=YOUR_GITHUB_TOKEN
 
 # Show help and options
 ./bin/use-tools-artifact.sh --help
-```
+
+```bash
 #### Example Output
 
 When tools are already installed:
@@ -131,6 +127,7 @@ When tools are already installed:
   ✓ Cilium CLI installed to /home/user/.local/bin
   ✓ Hubble CLI installed to /home/user/.local/bin
 ```
+
 With verification showing installation paths:
 
 ```bash
@@ -140,33 +137,25 @@ With verification showing installation paths:
   Cilium CLI: cilium-cli v0.18.4 (/home/user/.local/bin/cilium)
   Hubble CLI: hubble v1.17.5 (/home/user/.local/bin/hubble)
 ```
+
 The installer:
+
 - Checks for required dependencies (ORAS CLI and jq) and offers to install them
-
 - Automatically detects your platform using `uname -s` and `uname -m`
-
 - For macOS: Uses Homebrew to install dependencies
-
 - For Linux: Downloads binaries directly from GitHub releases
-
 - Installs all dependencies to `$HOME/.local/bin` (no sudo required)
-
 - Temporarily adds `$HOME/.local/bin` to PATH for the current session
-
 - Downloads all required scripts (common.sh, tools-config.json, use-tools-artifact.sh)
-
 - Checks if tools are already installed system-wide before installing
-
 - Skips installation of existing tools (use `--force` to override)
-
 - Uses the `install` command for proper permissions (755) when available
-
 - Shows the installation path for each tool during verification
+- Displays a reminder to permanently add `$HOME/.local/bin` to `PATH` if needed
 
-- Displays a reminder to permanently add `$HOME/.local/bin` to PATH if needed
 ### PATH Configuration
 
-If `$HOME/.local/bin` is not in your PATH, add it to your shell configuration:
+If `$HOME/.local/bin` is not in your `PATH`, add it to your shell configuration:
 
 ```bash
 # For bash (~/.bashrc)
@@ -213,6 +202,7 @@ chmod +x ./tools-bin/bin/*
 # Or install system-wide
 sudo cp tools-bin/bin/* $HOME/.local/bin/
 ```
+
 ## CI/CD Integration
 
 ### GitHub Actions Workflows
@@ -274,6 +264,7 @@ install-tools:
 ```
 
 ## Making Your Package Visible
+
 ### Make the Package Public (Recommended)
 
 After your first push, the package will be private. To make it public:
@@ -295,19 +286,16 @@ The package will be automatically linked to your repository if the ORAS manifest
 ```
 
 ## Configuration
+
 ### Tool Configuration (tools-config.json)
 
 All tools are configured in the `tools-config.json` file, which defines:
+
 - Tool metadata (name, version, description)
-
 - Download URL patterns with OS/architecture placeholders
-
 - File types (binary vs tar.gz)
-
 - OS/architecture mappings for different naming conventions
-
 - OCI annotations and media types
-
 - Artifact registry settings
 
 #### Configuration Structure
@@ -361,6 +349,7 @@ You can override tool versions in two ways:
    vim tools-config.json
    # Update the version field for any tool
    ```
+
 ### Adding or Removing Tools
 
 To add a new tool or remove an existing one, edit the `tools-config.json` file:
@@ -405,18 +394,16 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 ```
 
 ## ORAS Artifact Details
+
 ### ORAS Artifact (`build.sh`)
+
 - Creates OCI artifacts with proper file annotations
-
 - Linux-only (linux/amd64, linux/arm64) - follows OCI container conventions
-
 - Each binary is a separate layer with metadata
-
 - ORAS can pull and extract files directly
-
 - Best for direct file distribution in Linux environments
-
 - Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
+
 ## Repository Structure
 
 ```bash
@@ -464,7 +451,9 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 13. **No Sudo Required**: All tools install to `$HOME/.local/bin` in user space
 14. **Dependency Management**: Auto-installs ORAS and jq if missing
 15. **PATH Guidance**: Provides clear instructions for PATH configuration
+
 ## Troubleshooting
+
 ### Registry Authentication Issues
 
 ```bash

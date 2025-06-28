@@ -9,11 +9,13 @@ This guide walks you through setting up everything needed to build and use the U
 The `bin/use-tools-artifact.sh` script will auto-install ORAS if not present, or you can install it manually:
 
 **macOS:**
+
 ```bash
 brew install oras
 ```
 
 **Linux:**
+
 ```bash
 curl -LO https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
 tar -xzf oras_1.2.0_linux_amd64.tar.gz
@@ -23,11 +25,13 @@ sudo mv oras /usr/local/bin/
 ### jq (JSON processor)
 
 **macOS:**
+
 ```bash
 brew install jq
 ```
 
 **Linux:**
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install jq

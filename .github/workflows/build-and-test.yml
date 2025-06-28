@@ -24,7 +24,7 @@ jobs:
             arch: amd64
           - os: linux
             arch: arm64
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -90,10 +90,10 @@ jobs:
         run: |
           echo "Testing executables for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}..."
           cd build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}
-          
+
           # Make all tools executable
           chmod +x *
-          
+
           # Test each tool
           for tool in $(jq -r '.tools | keys[]' ../../tools-config.json); do
             executable_name=$(jq -r ".tools.${tool}.executable_name" ../../tools-config.json)
@@ -112,13 +112,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Validate tools-config.json
         run: |
           echo "Validating tools-config.json..."
           jq empty tools-config.json
           echo "✓ JSON is valid"
-          
+
           # Check required fields
           echo ""
           echo "Checking tool configurations..."
@@ -138,7 +138,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
         with:
