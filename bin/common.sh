@@ -112,8 +112,10 @@ install_oras() {
     echo "Installing ORAS CLI..."
 
     # Detect OS and architecture
-    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
-    local arch=$(uname -m)
+    local os
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch
+    arch=$(uname -m)
 
     # Convert architecture names
     case ${arch} in
@@ -134,8 +136,9 @@ install_oras() {
     local oras_url="https://github.com/oras-project/oras/releases/download/v${oras_version}/oras_${oras_version}_${os}_${arch}.tar.gz"
 
     # Create temp directory for ORAS download
-    local temp_dir=$(mktemp -d)
-    trap "rm -rf ${temp_dir}" RETURN
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap 'rm -rf ${temp_dir}' RETURN
 
     echo "Downloading ORAS v${oras_version}..."
     if curl -fsSL "${oras_url}" -o "${temp_dir}/oras.tar.gz"; then
@@ -184,8 +187,10 @@ download_with_retry() {
 
 # Function to detect platform
 detect_platform() {
-    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
-    local arch=$(uname -m)
+    local os
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch
+    arch=$(uname -m)
 
     # Convert architecture names
     case ${arch} in
@@ -221,7 +226,7 @@ export RED GREEN YELLOW NC
 
 # Function to load JSON configuration
 load_tools_config() {
-    local config_file="${1:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${1:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found: $config_file${NC}" >&2
@@ -250,7 +255,7 @@ load_tools_config() {
 get_tool_property() {
     local tool_key="$1"
     local property="$2"
-    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found${NC}" >&2
@@ -262,7 +267,7 @@ get_tool_property() {
 
 # Function to get all tool keys
 get_all_tools() {
-    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found${NC}" >&2
@@ -275,7 +280,7 @@ get_all_tools() {
 # Function to get artifact configuration
 get_artifact_config() {
     local property="$1"
-    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found${NC}" >&2
@@ -290,7 +295,7 @@ build_tool_url() {
     local tool_key="$1"
     local os="$2"
     local arch="$3"
-    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found${NC}" >&2
@@ -298,12 +303,16 @@ build_tool_url() {
     fi
 
     # Get URL pattern and version
-    local url_pattern=$(get_tool_property "$tool_key" "url_pattern")
-    local version=$(get_tool_property "$tool_key" "version")
+    local url_pattern
+    url_pattern=$(get_tool_property "$tool_key" "url_pattern")
+    local version
+    version=$(get_tool_property "$tool_key" "version")
 
     # Get OS and arch mappings
-    local mapped_os=$(jq -r ".tools.${tool_key}.os_mapping.${os} // \"${os}\"" "$config_file")
-    local mapped_arch=$(jq -r ".tools.${tool_key}.arch_mapping.${arch} // \"${arch}\"" "$config_file")
+    local mapped_os
+    mapped_os=$(jq -r ".tools.${tool_key}.os_mapping.${os} // \"${os}\"" "$config_file")
+    local mapped_arch
+    mapped_arch=$(jq -r ".tools.${tool_key}.arch_mapping.${arch} // \"${arch}\"" "$config_file")
 
     # Replace placeholders in URL pattern
     local url="$url_pattern"
@@ -331,7 +340,7 @@ get_tool_version() {
 process_annotations() {
     local tool_key="$1"
     local version="$2"
-    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/tools-config.json}"
+    local config_file="${TOOLS_CONFIG_FILE:-${SCRIPT_DIR}/../tools-config.json}"
 
     if [ ! -f "$config_file" ]; then
         echo -e "${RED}Error: Configuration file not found${NC}" >&2

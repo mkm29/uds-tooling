@@ -62,7 +62,7 @@ fi
 
 # Create temporary directory for downloads
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf ${TEMP_DIR}" EXIT
+trap 'rm -rf ${TEMP_DIR}' EXIT
 
 # download_with_retry function is already in common.sh
 
@@ -85,18 +85,24 @@ download_tool() {
 
     # Download all tools from config
     for tool in $(get_all_tools); do
-        local tool_name=$(get_tool_property "$tool" "name")
-        local filetype=$(get_tool_property "$tool" "filetype")
-        local executable_name=$(get_tool_property "$tool" "executable_name")
+        local tool_name
+        tool_name=$(get_tool_property "$tool" "name")
+        local filetype
+        filetype=$(get_tool_property "$tool" "filetype")
+        local executable_name
+        executable_name=$(get_tool_property "$tool" "executable_name")
 
         # Get version with environment variable override support
-        local env_var_name="$(echo "${tool}_VERSION" | tr '[:lower:]' '[:upper:]')"
-        local version=$(get_tool_version "$tool" "$env_var_name")
+        local env_var_name
+        env_var_name="$(echo "${tool}_VERSION" | tr '[:lower:]' '[:upper:]')"
+        local version
+        version=$(get_tool_version "$tool" "$env_var_name")
 
         echo "  📥 ${tool_name} ${version}..."
 
         # Build download URL
-        local url=$(build_tool_url "$tool" "$os" "$arch")
+        local url
+        url=$(build_tool_url "$tool" "$os" "$arch")
         echo "  Downloading from: ${url}"
 
         # Download based on file type
@@ -109,25 +115,31 @@ download_tool() {
             chmod +x "${tool_dir}/${executable_name}"
             ;;
         "tar.gz")
-            local temp_tar="${TEMP_DIR}/${tool}.tar.gz"
+            local temp_tar
+            temp_tar="${TEMP_DIR}/${tool}.tar.gz"
             if ! download_with_retry "${url}" "${temp_tar}"; then
                 echo "Failed to download ${tool_name}"
                 return 1
             fi
 
             # Handle extraction based on tool configuration
-            local extract_path=$(get_tool_property "$tool" "extract_path")
-            local extract_files=$(get_tool_property "$tool" "extract_files")
+            local extract_path
+            extract_path=$(get_tool_property "$tool" "extract_path")
+            local extract_files
+            extract_files=$(get_tool_property "$tool" "extract_files")
 
             if [ -n "$extract_path" ]; then
                 # Extract to temp dir and move specific file
-                local extract_dir="${TEMP_DIR}/${tool}-extract"
+                local extract_dir
+                extract_dir="${TEMP_DIR}/${tool}-extract"
                 mkdir -p "${extract_dir}"
                 tar -xzf "${temp_tar}" -C "${extract_dir}"
 
                 # Replace placeholders in extract path
-                local mapped_os=$(jq -r ".tools.${tool}.os_mapping.${os} // \"${os}\"" "$TOOLS_CONFIG_FILE")
-                local mapped_arch=$(jq -r ".tools.${tool}.arch_mapping.${arch} // \"${arch}\"" "$TOOLS_CONFIG_FILE")
+                local mapped_os
+                mapped_os=$(jq -r ".tools.${tool}.os_mapping.${os} // \"${os}\"" "$TOOLS_CONFIG_FILE")
+                local mapped_arch
+                mapped_arch=$(jq -r ".tools.${tool}.arch_mapping.${arch} // \"${arch}\"" "$TOOLS_CONFIG_FILE")
                 extract_path="${extract_path//\{os\}/$mapped_os}"
                 extract_path="${extract_path//\{arch\}/$mapped_arch}"
 
@@ -135,7 +147,8 @@ download_tool() {
                 rm -rf "${extract_dir}"
             elif [ -n "$extract_files" ]; then
                 # Extract specific files directly
-                local files=$(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE")
+                local files
+                files=$(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE")
                 tar -xzf "${temp_tar}" -C "${tool_dir}" $files
             else
                 # Extract all files

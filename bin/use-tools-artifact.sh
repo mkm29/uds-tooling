@@ -21,7 +21,7 @@ while [[ $# -gt 0 ]]; do
         echo "Environment variables:"
         echo "  REGISTRY       Override registry (default: ghcr.io)"
         echo "  NAMESPACE      Override namespace (default: mkm29)"
-        echo "  REPOSITORY     Override repository (default: uds-k3d-cilium/tools)"
+        echo "  REPOSITORY     Override repository (default: uds-tooling/tools)"
         echo "  TAG            Override tag (default: from tools-config.json)"
         echo "  INSTALL_PATH   Installation directory (default: ~/.local/bin)"
         echo ""
@@ -106,7 +106,7 @@ mkdir -p "${INSTALL_PATH}"
 
 # Create temporary directory for extraction
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf ${TEMP_DIR}" EXIT
+trap 'rm -rf ${TEMP_DIR}' EXIT
 
 echo "⬇️  Pulling tools artifact: ${IMAGE}"
 echo ""
@@ -170,13 +170,13 @@ echo "🔧 Installing tools to ${INSTALL_PATH}..."
 TOOLS_DIR="${TEMP_DIR}"
 
 for tool in $(get_all_tools); do
-    local executable_name=$(get_tool_property "$tool" "executable_name")
-    local tool_name=$(get_tool_property "$tool" "name")
+    executable_name=$(get_tool_property "$tool" "executable_name")
+    tool_name=$(get_tool_property "$tool" "name")
 
     # Check if tool is already installed
     if command -v "${executable_name}" &>/dev/null && [ "$FORCE_INSTALL" = false ]; then
         # Get installed version based on tool
-        local installed_version=""
+        installed_version=""
         case "${executable_name}" in
         kubectl)
             installed_version=$("${executable_name}" version --client --short 2>/dev/null || echo "unknown")
@@ -224,11 +224,11 @@ fi
 
 # Verify each tool
 for tool in $(get_all_tools); do
-    local executable_name=$(get_tool_property "$tool" "executable_name")
-    local tool_name=$(get_tool_property "$tool" "name")
+    executable_name=$(get_tool_property "$tool" "executable_name")
+    tool_name=$(get_tool_property "$tool" "name")
 
     # Check in PATH first, then in INSTALL_PATH
-    local tool_path=""
+    tool_path=""
     if command -v "${executable_name}" &>/dev/null; then
         tool_path=$(command -v "${executable_name}")
     elif [ -f "${INSTALL_PATH}/${executable_name}" ]; then
@@ -237,7 +237,7 @@ for tool in $(get_all_tools); do
 
     if [ -n "$tool_path" ]; then
         # Get version based on tool
-        local version=""
+        version=""
         case "${executable_name}" in
         kubectl)
             version=$("${tool_path}" version --client --short 2>/dev/null || echo "unknown")
@@ -260,7 +260,7 @@ echo -e "${GREEN}✅ Tools installation complete!${NC}"
 echo ""
 echo "If ${INSTALL_PATH} is in your PATH, you can now use:"
 for tool in $(get_all_tools); do
-    local executable_name=$(get_tool_property "$tool" "executable_name")
+    executable_name=$(get_tool_property "$tool" "executable_name")
     if [ "$executable_name" = "k9s" ]; then
         echo "  ${executable_name}"
     else
