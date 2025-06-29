@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag for the artifacts'
+        description: 'Tag for the artifacts (e.g., v1.2.3)'
         required: true
-        default: 'v1.0.0'
+        default: ''
 
 env:
   REGISTRY: ghcr.io
@@ -37,7 +37,8 @@ jobs:
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.3.0-beta.3
+          url: https://github.com/oras-project/oras/releases/download/v1.3.0-beta.3/oras_1.3.0-beta.3_linux_amd64.tar.gz
+          checksum: 8d647a3e1761aee86fe20f5e4d3088f1208f721cca6f4d62ffd810a420de171f
 
       - name: Install dependencies
         run: |
@@ -104,7 +105,7 @@ jobs:
 
           echo "Pushing to temporary tag: ${ARTIFACT}"
           eval "$push_cmd"
-          
+
           # Output the temp tag for the manifest index job
           echo "TEMP_TAG_${{ matrix.platform.os }}_${{ matrix.platform.arch }}=${TEMP_TAG}" >> $GITHUB_ENV
 
@@ -125,16 +126,17 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.3.0-beta.3
-      
+          url: https://github.com/oras-project/oras/releases/download/v1.3.0-beta.3/oras_1.3.0-beta.3_linux_amd64.tar.gz
+          checksum: 8d647a3e1761aee86fe20f5e4d3088f1208f721cca6f4d62ffd810a420de171f
+
       - name: Determine tag
         id: determine-tag
         run: |
@@ -145,21 +147,21 @@ jobs:
           else
             echo "TAG=latest" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Login to registry
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | oras login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-      
+
       - name: Create multi-platform manifest index
         run: |
           TAG="${{ steps.determine-tag.outputs.TAG }}"
           REGISTRY="${{ env.REGISTRY }}"
           NAMESPACE="${{ env.NAMESPACE }}"
           REPOSITORY="${{ env.REPOSITORY }}"
-          
+
           echo "Looking for temporary platform tags..."
           TEMP_TAGS=()
-          
+
           # Look for temporary tags created by the build jobs
           for platform in "linux-amd64" "darwin-arm64"; do
             # List tags and find the most recent temp tag for this platform
@@ -171,10 +173,10 @@ jobs:
               echo "Warning: Could not find temporary tag for ${platform}"
             fi
           done
-          
+
           if [ ${#TEMP_TAGS[@]} -eq 2 ]; then
             echo "Creating manifest index with tag: ${TAG}"
-            
+
             # Create the manifest index
             oras manifest index create "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}" "${TEMP_TAGS[@]}" \
               --annotation "org.opencontainers.image.title=UDS k3d Cilium Tools" \
@@ -182,9 +184,9 @@ jobs:
               --annotation "org.opencontainers.image.version=${TAG}" \
               --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
               --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-            
-            echo "✅ Created multi-platform manifest index: ${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}"
-            
+
+            echo "Created multi-platform manifest index: ${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}"
+
             # Clean up temporary tags
             echo "Cleaning up temporary tags..."
             for temp_tag in "${TEMP_TAGS[@]}"; do
