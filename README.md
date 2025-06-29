@@ -1,45 +1,40 @@
 # UDS Tools OCI Artifact
 
-This directory contains scripts to create and use an OCI artifact that bundles all the CLI tools required to run UDS (with flexible tools configuration for extendibility).
+This repository provides scripts to create and distribute OCI artifacts that bundle CLI tools required for UDS (Unicorn Delivery Service) deployments.
+The tools are configured via a central JSON file for easy version management and extensibility.
 
 📚 **First time?** See the [First-Time Setup Guide](SETUP.md) for detailed instructions.
+
 ## What's Included
 
 The OCI artifact contains the following tools (configured in `tools-config.json`):
+
 - **UDS CLI** (v0.27.7): Defense Unicorns UDS CLI
-
 - **Helm** (v3.18.3): Kubernetes package manager
-
 - **Cilium CLI** (v0.18.4): Cilium CNI management tool
-
 - **Hubble CLI** (v1.17.5): Hubble observability CLI for network flows
-
 - **k3d** (v5.8.3): Lightweight Kubernetes in Docker
-
 - **kubectl** (v1.33.2): Kubernetes command-line tool
-
 - **k9s** (v0.50.6): Terminal-based Kubernetes UI
 
 Tool versions and metadata are centrally managed in the `tools-config.json` file.
+
+> **Note**: All scripts have been moved to the `bin/` directory for better organization. If you have existing scripts or CI/CD pipelines, update paths from `./script.sh` to `./bin/script.sh`.
+
 ## Prerequisites
+
 - Access to a container registry (e.g., GitHub Container Registry)
-
 - Authentication to your registry (see [Authentication](#authentication) section)
-
 - ORAS CLI for building and pulling artifacts (auto-installed by installer script)
-
 - `jq` for JSON parsing (auto-installed by installer script)
-
-**Note**: The one-line installer (`install.sh`) will check for ORAS and jq and offer to install them automatically:
-
+  - **Note**: The one-line installer (`install.sh`) will check for ORAS and jq and offer to install them automatically:
 - macOS: Uses Homebrew to install dependencies
-
 - Linux: Downloads binaries from GitHub releases
-
 - All tools are installed to `$HOME/.local/bin` (no sudo required)
-
 - The installer will remind you to add `$HOME/.local/bin` to your PATH if needed
+
 ## Authentication
+
 ### GitHub Container Registry (ghcr.io)
 
 1. **Create a Personal Access Token (PAT)**:
@@ -61,7 +56,9 @@ Tool versions and metadata are centrally managed in the `tools-config.json` file
    ```
 
 For more details, see the [official GitHub documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
 ## Building the Tools Artifact
+
 ### Build ORAS Artifact (Native OCI artifacts - Linux only)
 
 ```bash
@@ -87,14 +84,16 @@ CILIUM_CLI_VERSION=v0.18.4 \
 # Build single platform for CI/CD
 BUILD_OS=linux BUILD_ARCH=amd64 BUILD_ONLY=true ./bin/build.sh
 ```
+
 This creates proper OCI artifacts with file annotations that ORAS can pull directly.
 **Note**:
-- ORAS artifacts only include Linux binaries (linux/amd64, linux/arm64) since OCI registries are primarily for container images that run on Linux.
 
+- ORAS artifacts only include Linux binaries (linux/amd64, linux/arm64) since OCI registries are primarily for container images that run on Linux
 - Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
-
 - ORAS doesn't currently support multi-platform index manifests like Docker, so platform-specific tags are used instead
+
 ## Using the Tools
+
 ### Quick Install
 
 ```bash
@@ -118,6 +117,7 @@ export CR_PAT=YOUR_GITHUB_TOKEN
 # Show help and options
 ./bin/use-tools-artifact.sh --help
 ```
+
 #### Example Output
 
 When tools are already installed:
@@ -131,6 +131,7 @@ When tools are already installed:
   ✓ Cilium CLI installed to /home/user/.local/bin
   ✓ Hubble CLI installed to /home/user/.local/bin
 ```
+
 With verification showing installation paths:
 
 ```bash
@@ -140,33 +141,25 @@ With verification showing installation paths:
   Cilium CLI: cilium-cli v0.18.4 (/home/user/.local/bin/cilium)
   Hubble CLI: hubble v1.17.5 (/home/user/.local/bin/hubble)
 ```
+
 The installer:
+
 - Checks for required dependencies (ORAS CLI and jq) and offers to install them
-
 - Automatically detects your platform using `uname -s` and `uname -m`
-
 - For macOS: Uses Homebrew to install dependencies
-
 - For Linux: Downloads binaries directly from GitHub releases
-
 - Installs all dependencies to `$HOME/.local/bin` (no sudo required)
-
 - Temporarily adds `$HOME/.local/bin` to PATH for the current session
-
 - Downloads all required scripts (common.sh, tools-config.json, use-tools-artifact.sh)
-
 - Checks if tools are already installed system-wide before installing
-
 - Skips installation of existing tools (use `--force` to override)
-
 - Uses the `install` command for proper permissions (755) when available
-
 - Shows the installation path for each tool during verification
+- Displays a reminder to permanently add `$HOME/.local/bin` to `PATH` if needed
 
-- Displays a reminder to permanently add `$HOME/.local/bin` to PATH if needed
 ### PATH Configuration
 
-If `$HOME/.local/bin` is not in your PATH, add it to your shell configuration:
+If `$HOME/.local/bin` is not in your `PATH`, add it to your shell configuration:
 
 ```bash
 # For bash (~/.bashrc)
@@ -189,7 +182,7 @@ source ~/.config/fish/config.fish
 brew install oras  # macOS with Homebrew
 
 # Or manually download for Linux
-ORAS_VERSION="1.2.0"
+ORAS_VERSION="1.2.3"
 curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
 mkdir -p $HOME/.local/bin
 tar -xzf oras_${ORAS_VERSION}_linux_amd64.tar.gz -C $HOME/.local/bin oras
@@ -213,6 +206,7 @@ chmod +x ./tools-bin/bin/*
 # Or install system-wide
 sudo cp tools-bin/bin/* $HOME/.local/bin/
 ```
+
 ## CI/CD Integration
 
 ### GitHub Actions Workflows
@@ -220,18 +214,38 @@ sudo cp tools-bin/bin/* $HOME/.local/bin/
 This repository includes GitHub Actions workflows optimized for protected branches:
 
 1. **Build and Test** (`build-and-test.yml`): Runs on PRs and merge groups
-   - Builds artifacts for all platforms
+   - Builds artifacts for all platforms without pushing
    - Tests executables
    - Validates JSON configuration
    - Runs ShellCheck on scripts
 
-2. **Release Artifacts** (`release-artifacts.yml`): Runs on version tags
-   - Builds and pushes OCI artifacts to GitHub Container Registry
-   - Creates GitHub releases with installation instructions
+2. **Release Artifacts** (`release-artifacts.yml`): Runs on version tags or manual dispatch
+   - Builds and pushes OCI artifacts to GitHub Container Registry  
+   - Supports custom tags for manual releases
+   - Creates platform-specific artifacts
 
 3. **Release Please** (`release.yml`): Manages versioning and changelogs
    - Creates release PRs with version bumps
    - Updates changelog automatically
+   - Triggers artifact builds on release creation
+
+4. **CI** (`ci.yml`): Continuous integration checks
+   - Lints shell scripts and Markdown files
+   - Tests common functions
+   - Runs security scans
+
+5. **Update Tool Versions** (`update-tools.yml`): Automated dependency updates
+   - Runs weekly to check for new tool versions
+   - Creates PRs with version updates
+
+### Protected Branch Support
+
+The workflows are designed to work with protected main branches:
+
+- PRs are tested without pushing artifacts
+- Only tagged releases or manual dispatches trigger artifact pushes
+- All changes go through PR review process
+- Automated tool updates create PRs for review
 
 ### GitHub Actions Example
 
@@ -239,7 +253,7 @@ This repository includes GitHub Actions workflows optimized for protected branch
 - name: Set up ORAS
   uses: oras-project/setup-oras@v1
   with:
-    version: 1.2.0
+    version: 1.2.3
 
 - name: Extract UDS Tools
   run: |
@@ -264,16 +278,17 @@ install-tools:
   image: alpine:latest
   script:
     - apk add curl tar
-    - curl -LO https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
-    - tar -xzf oras_1.2.0_linux_amd64.tar.gz
+    - curl -LO https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz
+    - tar -xzf oras_1.2.3_linux_amd64.tar.gz
     - mv oras $HOME/.local/bin/
-    - oras pull ghcr.io/mkm29/uds-tooling//tools:v1.0.1-linux-amd64 -o /tmp/tools
+    - oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1-linux-amd64 -o /tmp/tools
     - cp /tmp/tools/* $HOME/.local/bin/
     - chmod +x $HOME/.local/bin/*
     - uds version && helm version && cilium version && hubble version && k3d version && kubectl version --client && k9s version
 ```
 
 ## Making Your Package Visible
+
 ### Make the Package Public (Recommended)
 
 After your first push, the package will be private. To make it public:
@@ -295,19 +310,16 @@ The package will be automatically linked to your repository if the ORAS manifest
 ```
 
 ## Configuration
+
 ### Tool Configuration (tools-config.json)
 
 All tools are configured in the `tools-config.json` file, which defines:
+
 - Tool metadata (name, version, description)
-
 - Download URL patterns with OS/architecture placeholders
-
 - File types (binary vs tar.gz)
-
 - OS/architecture mappings for different naming conventions
-
 - OCI annotations and media types
-
 - Artifact registry settings
 
 #### Configuration Structure
@@ -351,7 +363,7 @@ You can override tool versions in two ways:
    UDS_VERSION=v0.27.7 \
    HELM_VERSION=v3.18.3 \
    CILIUM_CLI_VERSION=v0.18.4 \
-   ./bin/build-tools-artifact.sh
+   ./bin/build.sh
    ```
 
 2. **Edit tools-config.json**:
@@ -361,6 +373,7 @@ You can override tool versions in two ways:
    vim tools-config.json
    # Update the version field for any tool
    ```
+
 ### Adding or Removing Tools
 
 To add a new tool or remove an existing one, edit the `tools-config.json` file:
@@ -401,34 +414,43 @@ REGISTRY=my-registry.company.com \
 NAMESPACE=platform-team \
 REGISTRY_USERNAME=svcaccount \
 REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
-./bin/build-tools-artifact.sh
+./bin/build.sh
 ```
 
 ## ORAS Artifact Details
+
 ### ORAS Artifact (`build.sh`)
+
 - Creates OCI artifacts with proper file annotations
-
 - Linux-only (linux/amd64, linux/arm64) - follows OCI container conventions
-
 - Each binary is a separate layer with metadata
-
 - ORAS can pull and extract files directly
-
 - Best for direct file distribution in Linux environments
-
 - Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
+
 ## Repository Structure
 
 ```bash
 .
-├── bin/
-│   ├── build.sh               # Build ORAS artifact with CLI tools
-│   ├── use-tools-artifact.sh  # Install tools from ORAS artifacts
-│   ├── common.sh              # Shared functions and JSON parsing utilities
-│   └── install.sh             # Quick installer script
-├── tools-config.json          # Central configuration for all tools
-├── README.md                  # This documentation
-└── SETUP.md                   # First-time setup guide
+├── bin/                           # All executable scripts
+│   ├── build.sh                   # Build ORAS artifact with CLI tools
+│   ├── use-tools-artifact.sh      # Install tools from ORAS artifacts
+│   ├── common.sh                  # Shared functions and JSON parsing utilities
+│   └── install.sh                 # Quick installer script
+├── .github/
+│   └── workflows/                 # GitHub Actions workflows
+│       ├── build-and-test.yml     # PR testing workflow
+│       ├── release-artifacts.yml  # Artifact release workflow
+│       ├── release.yml            # Release-please automation
+│       ├── ci.yml                 # Continuous integration checks
+│       └── update-tools.yml       # Automated tool version updates
+├── tools-config.json              # Central configuration for all tools
+├── .markdownlint.json             # Markdown linting configuration
+├── release-please-config.json     # Release automation configuration
+├── .release-please-manifest.json  # Version tracking
+├── CHANGELOG.md                   # Project changelog
+├── README.md                      # This documentation
+└── SETUP.md                       # First-time setup guide
 ```
 
 ## Artifact Structure
@@ -464,7 +486,9 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 13. **No Sudo Required**: All tools install to `$HOME/.local/bin` in user space
 14. **Dependency Management**: Auto-installs ORAS and jq if missing
 15. **PATH Guidance**: Provides clear instructions for PATH configuration
+
 ## Troubleshooting
+
 ### Registry Authentication Issues
 
 ```bash
@@ -512,8 +536,8 @@ The scripts automatically detect and download the correct platform. If you need 
 
 ```bash
 # Download specific platform
-PLATFORMS=darwin/arm64 ./bin/build-tools-artifact.sh
+PLATFORMS=darwin/arm64 ./bin/build.sh
 
 # Multiple platforms
-PLATFORMS="linux/amd64,darwin/arm64" ./bin/build-tools-artifact.sh
+PLATFORMS="linux/amd64,darwin/arm64" ./bin/build.sh
 ```

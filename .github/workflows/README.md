@@ -1,13 +1,16 @@
 # GitHub Actions Workflows
 
-This directory contains GitHub Actions workflows for automating the build, test, and release processes for the UDS Tools OCI artifacts.
+This directory contains GitHub Actions workflows for automating the build,
+test, and release processes for the UDS Tools OCI artifacts.
 
 ## Workflows
 
 ### 1. CI (`ci.yml`)
+
 **Trigger**: Push to main, Pull requests
 
 Basic continuous integration checks:
+
 - Lints shell scripts with ShellCheck
 - Validates JSON configuration files
 - Checks file permissions
@@ -17,9 +20,11 @@ Basic continuous integration checks:
 - Secret scanning with TruffleHog
 
 ### 2. Build and Push (`build-and-push.yml`)
+
 **Trigger**: Push to main, tags, manual dispatch
 
 Main workflow for building and pushing ORAS artifacts:
+
 - Builds tools artifacts for Linux (amd64/arm64)
 - Pushes to GitHub Container Registry
 - Creates platform-specific artifacts
@@ -27,12 +32,15 @@ Main workflow for building and pushing ORAS artifacts:
 - Creates GitHub releases for tags
 
 **Manual trigger options**:
+
 - `tag`: Custom tag for the artifacts (default: latest)
 
 ### 3. Test Pull Request (`test-pr.yml`)
+
 **Trigger**: Pull requests that modify tools files
 
 Comprehensive PR testing without pushing artifacts:
+
 - Validates all shell scripts
 - Validates tools configuration
 - Tests downloading each tool
@@ -40,20 +48,25 @@ Comprehensive PR testing without pushing artifacts:
 - Security scanning
 
 ### 4. Update Tool Versions (`update-tools.yml`)
+
 **Trigger**: Weekly schedule (Mondays 9 AM UTC), manual dispatch
 
 Automatically checks for and updates tool versions:
+
 - Checks latest versions from upstream repositories
 - Updates tools-config.json
 - Creates pull request with updates
 
 **Manual trigger options**:
+
 - `tool`: Specific tool to check (optional)
 
 ### 5. Create Release (`release.yml`)
+
 **Trigger**: Manual dispatch only
 
 Workflow for creating new releases:
+
 - Validates version format
 - Updates default tag in configuration
 - Creates git tag
@@ -61,6 +74,7 @@ Workflow for creating new releases:
 - Creates GitHub release with notes
 
 **Required inputs**:
+
 - `version`: Version to release (e.g., v1.0.0)
 - `release_notes`: Additional release notes (optional)
 
@@ -73,13 +87,14 @@ Workflow for creating new releases:
    - Under "Workflow permissions", select "Read and write permissions"
 
 2. **Package Visibility**: After first push, make packages public:
-   - Go to https://github.com/users/YOUR_USERNAME/packages
+   - Go to `https://github.com/users/YOUR_USERNAME/packages`
    - Click on the package
    - Go to Package settings → Change visibility → Public
 
 ### Secrets
 
 No additional secrets required. Workflows use:
+
 - `GITHUB_TOKEN`: Automatically provided by GitHub Actions
 - Has permissions for:
   - Reading repository contents
@@ -89,12 +104,14 @@ No additional secrets required. Workflows use:
 ## Usage Examples
 
 ### Manual Build and Push
+
 ```bash
 # Trigger build with custom tag
 gh workflow run build-and-push.yml -f tag=v1.2.3
 ```
 
 ### Check for Updates
+
 ```bash
 # Check all tools for updates
 gh workflow run update-tools.yml
@@ -104,6 +121,7 @@ gh workflow run update-tools.yml -f tool=helm
 ```
 
 ### Create a Release
+
 ```bash
 # Create a new release
 gh workflow run release.yml \
@@ -137,21 +155,25 @@ graph TD
 ## Troubleshooting
 
 ### Build Failures
+
 - Check GitHub Actions logs
 - Ensure all tools are downloadable
 - Verify JSON configuration is valid
 
 ### Authentication Issues
+
 - GitHub token is automatically provided
 - Ensure workflow has write permissions
 
 ### Update Workflow Issues
+
 - Check API rate limits if many tools fail
 - Verify tool repository URLs in workflow
 
 ## Local Testing
 
 Test workflows locally using [act](https://github.com/nektos/act):
+
 ```bash
 # Test CI workflow
 act push

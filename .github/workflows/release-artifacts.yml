@@ -29,7 +29,7 @@ jobs:
             arch: amd64
           - os: linux
             arch: arm64
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,7 +37,7 @@ jobs:
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.2.0
+          version: 1.2.3
 
       - name: Install dependencies
         run: |
@@ -81,15 +81,15 @@ jobs:
           TAG: ${{ steps.determine-tag.outputs.TAG }}
         run: |
           cd "build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
-          
+
           ARTIFACT="${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
-          
+
           # Build oras push command
           push_cmd="oras push \"${ARTIFACT}\""
           push_cmd+=" --annotation-file manifest-annotations.json"
           push_cmd+=" --annotation-file file-annotations.json"
           push_cmd+=" --config config.json:application/vnd.oci.image.config.v1+json"
-          
+
           # Add each tool with its media type
           for tool in $(jq -r '.tools | keys[]' ../../tools-config.json); do
             executable_name=$(jq -r ".tools.${tool}.executable_name" ../../tools-config.json)
@@ -98,7 +98,7 @@ jobs:
               push_cmd+=" \"${executable_name}:${media_type}\""
             fi
           done
-          
+
           echo "Pushing to: ${ARTIFACT}"
           eval "$push_cmd"
 
@@ -106,7 +106,7 @@ jobs:
         run: |
           TAG="${{ steps.determine-tag.outputs.TAG }}"
           PLATFORM="${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
-          
+
           echo "## Build Summary for ${PLATFORM}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Successfully built and pushed ORAS artifact:" >> $GITHUB_STEP_SUMMARY
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -136,42 +136,42 @@ jobs:
       - name: Create Release Notes
         run: |
           TAG="${{ steps.determine-tag.outputs.TAG }}"
-          
+
           cat > release-notes.md << EOF
           ## UDS Tools OCI Artifact ${TAG}
-          
+
           This release contains CLI tools packaged as OCI artifacts for Linux platforms.
-          
+
           ### Artifacts
-          
+
           Platform-specific artifacts are available at:
           - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64\`
           - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64\`
-          
+
           ### Installation
-          
+
           #### Quick Install (Recommended)
           \`\`\`bash
           # One-line install
           curl -sL https://raw.githubusercontent.com/${{ github.repository }}/${TAG}/bin/install.sh | bash
           \`\`\`
-          
+
           #### Manual Install with ORAS
           \`\`\`bash
           # Install ORAS
           brew install oras  # macOS
           # or see https://oras.land/docs/installation
-          
+
           # Pull for your platform
           oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64
           # or
           oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64
           \`\`\`
-          
+
           ### Tools Included
-          
+
           EOF
-          
+
           # Add tool versions
           for tool in $(jq -r '.tools | keys[]' tools-config.json); do
             tool_name=$(jq -r ".tools.${tool}.name" tools-config.json)

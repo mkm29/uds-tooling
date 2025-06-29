@@ -11,7 +11,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           echo "::group::Linting shell scripts"
-          for script in *.sh; do
+          for script in bin/*.sh; do
             if [ -f "$script" ]; then
               echo "Checking $script..."
               shellcheck -x "$script"
@@ -47,7 +47,7 @@ jobs:
       - name: Check file permissions
         run: |
           echo "::group::Checking file permissions"
-          for script in *.sh; do
+          for script in bin/*.sh; do
             if [ -f "$script" ]; then
               if [ ! -x "$script" ]; then
                 echo "Warning: $script is not executable"
@@ -61,7 +61,7 @@ jobs:
 
   markdown-lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -73,10 +73,11 @@ jobs:
             **/*.md
             !**/node_modules
             !**/vendor
+            !CLAUDE.md
 
   test-scripts:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,10 +85,10 @@ jobs:
       - name: Test common.sh functions
         run: |
           echo "::group::Testing common.sh functions"
-          
+
           # Source the script
-          source ./common.sh
-          
+          source ./bin/common.sh
+
           # Test command_exists function
           if command_exists bash; then
             echo "✓ command_exists function works"
@@ -95,11 +96,11 @@ jobs:
             echo "✗ command_exists function failed"
             exit 1
           fi
-          
+
           # Test detect_platform function
           platform=$(detect_platform)
           echo "✓ Platform detected: $platform"
-          
+
           # Test load_tools_config function
           if load_tools_config; then
             echo "✓ Configuration loaded successfully"
@@ -107,20 +108,20 @@ jobs:
             echo "✗ Failed to load configuration"
             exit 1
           fi
-          
+
           # Test get_all_tools function
           tools=$(get_all_tools)
           echo "✓ Tools found: $(echo $tools | tr '\n' ' ')"
-          
+
           echo "::endgroup::"
 
       - name: Test URL generation
         run: |
           echo "::group::Testing URL generation"
-          
-          source ./common.sh
+
+          source ./bin/common.sh
           load_tools_config
-          
+
           # Test URL generation for each tool
           for tool in $(get_all_tools); do
             echo "Testing $tool..."
@@ -132,12 +133,12 @@ jobs:
               exit 1
             fi
           done
-          
+
           echo "::endgroup::"
 
   security:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

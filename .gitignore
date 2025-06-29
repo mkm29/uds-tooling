@@ -41,7 +41,6 @@ artifacts/
 
 # Tool binaries (downloaded during build process)
 tools/
-bin/
 .local/
 
 # ORAS specific
