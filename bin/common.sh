@@ -10,6 +10,11 @@
 # Source this file in other scripts:
 #   source "${SCRIPT_DIR}/common.sh"
 
+# Set SCRIPT_DIR if not already set (when sourced directly)
+if [ -z "${SCRIPT_DIR:-}" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

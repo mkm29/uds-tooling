@@ -47,7 +47,7 @@ jobs:
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.2.0
+          version: 1.2.3
 
       - name: Install dependencies
         run: |
@@ -105,7 +105,7 @@ jobs:
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.2.0
+          version: 1.2.3
 
       - name: Login to GitHub Container Registry
         run: |

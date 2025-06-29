@@ -17,8 +17,8 @@ brew install oras
 **Linux:**
 
 ```bash
-curl -LO https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
-tar -xzf oras_1.2.0_linux_amd64.tar.gz
+curl -LO https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz
+tar -xzf oras_1.2.3_linux_amd64.tar.gz
 sudo mv oras /usr/local/bin/
 ```
 

@@ -73,6 +73,7 @@ jobs:
             **/*.md
             !**/node_modules
             !**/vendor
+            !CLAUDE.md
 
   test-scripts:
     runs-on: ubuntu-latest

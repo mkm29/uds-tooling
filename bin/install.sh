@@ -58,7 +58,7 @@ install_oras() {
         fi
     elif [[ "${OS}" == "Linux" ]]; then
         echo "Downloading ORAS from GitHub releases..."
-        ORAS_VERSION="1.2.0"
+        ORAS_VERSION="1.2.3"
         ORAS_URL="https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_${OS_LOWER}_${ARCH}.tar.gz"
 
         TEMP_ORAS=$(mktemp -d)
