@@ -151,7 +151,7 @@ download_tool() {
                 # Use a more portable approach instead of readarray
                 local files_to_extract
                 files_to_extract=$(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE" | tr '\n' ' ')
-                
+
                 # Extract the specified files
                 eval "tar -xzf \"${temp_tar}\" -C \"${tool_dir}\" ${files_to_extract}"
             else
@@ -190,7 +190,7 @@ if [ -n "${BUILD_OS:-}" ] && [ -n "${BUILD_ARCH:-}" ]; then
     fi
 else
     # Build all specified platforms
-    IFS=',' read -ra PLATFORM_ARRAY <<< "$DEFAULT_PLATFORMS"
+    IFS=',' read -ra PLATFORM_ARRAY <<<"$DEFAULT_PLATFORMS"
     for platform in "${PLATFORM_ARRAY[@]}"; do
         os=$(echo "$platform" | cut -d'/' -f1)
         arch=$(echo "$platform" | cut -d'/' -f2)
@@ -232,23 +232,23 @@ EOF
 if [ "$BUILD_ONLY" = "true" ]; then
     echo ""
     echo "📁 Creating build directory structure..."
-    
+
     BUILD_DIR="${BUILD_DIR:-build}"
     rm -rf "${BUILD_DIR}"
     mkdir -p "${BUILD_DIR}"
-    
+
     # Prepare annotation files for each platform
     for platform_dir in "${TEMP_DIR}"/*-*; do
         if [ -d "$platform_dir" ]; then
             platform=$(basename "$platform_dir")
             os=$(echo "$platform" | cut -d'-' -f1)
             arch=$(echo "$platform" | cut -d'-' -f2)
-            
+
             echo "  Preparing ${platform}..."
-            
+
             # Create platform-specific manifest annotations
             create_platform_manifest_annotations "${os}" "${arch}" "${platform_dir}/manifest-annotations.json"
-            
+
             # Create file annotations for this platform
             echo '{' >"${platform_dir}/file-annotations.json"
             first=true
@@ -273,7 +273,7 @@ if [ "$BUILD_ONLY" = "true" ]; then
             done
             echo '' >>"${platform_dir}/file-annotations.json"
             echo '}' >>"${platform_dir}/file-annotations.json"
-            
+
             # Create a config.json for this platform
             cat >"${platform_dir}/config.json" <<EOF
 {
@@ -281,12 +281,12 @@ if [ "$BUILD_ONLY" = "true" ]; then
   "os": "${os}"
 }
 EOF
-            
+
             # Copy to build directory
             cp -r "${platform_dir}" "${BUILD_DIR}/"
         fi
     done
-    
+
     echo ""
     echo "✅ Build complete! Artifacts are in ${BUILD_DIR}/"
     echo ""
@@ -395,7 +395,7 @@ done
 if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
     echo ""
     echo "🔗 Creating unified multi-platform manifest..."
-    
+
     # First check if this version of ORAS supports manifest index
     if oras manifest index --help &>/dev/null 2>&1; then
         # Create the index with the final tag
@@ -407,9 +407,9 @@ if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
             --annotation "org.opencontainers.image.version=${TAG}" \
             --annotation "org.opencontainers.image.source=https://github.com/mkm29/uds-tooling" \
             --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"; then
-            
+
             echo "  ✅ Created and pushed multi-platform manifest: ${ARTIFACT}"
-            
+
             # Clean up temporary tags
             echo ""
             echo "🧹 Cleaning up temporary tags..."
@@ -434,10 +434,10 @@ if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
             # Format: v1.0.0-temp-linux-amd64-12345
             # Extract the platform part (linux-amd64)
             platform=$(echo "$temp_tag" | sed -E 's/.*-temp-(.*)-[0-9]+$/\1/')
-            
+
             # Copy manifest from temp tag to platform-specific tag
             echo "  Creating platform-specific tag: ${ARTIFACT}-${platform}"
-            oras manifest fetch "${TEMP_TAGS[$i]}" | \
+            oras manifest fetch "${TEMP_TAGS[$i]}" |
                 oras manifest push "${ARTIFACT}-${platform}"
         done
     fi
