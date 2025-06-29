@@ -160,9 +160,9 @@
   "artifact": {
     "registry": "ghcr.io",
     "namespace": "mkm29",
-    "repository": "uds-tooling/tools",
+    "repository": "uds-tooling",
     "default_tag": "v1.0.0",
-    "platforms": ["linux/amd64", "linux/arm64"],
+    "platforms": ["linux/amd64", "darwin/arm64"],
     "manifest_annotations": {
       "org.opencontainers.image.title": "UDS k3d Cilium Tools",
       "org.opencontainers.image.description": "CLI tools for UDS k3d Cilium deployment",

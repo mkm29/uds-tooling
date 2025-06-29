@@ -148,9 +148,12 @@ download_tool() {
                 rm -rf "${extract_dir}"
             elif [ -n "$extract_files" ]; then
                 # Extract specific files directly
-                local files_array
-                readarray -t files_array < <(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE")
-                tar -xzf "${temp_tar}" -C "${tool_dir}" "${files_array[@]}"
+                # Use a more portable approach instead of readarray
+                local files_to_extract
+                files_to_extract=$(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE" | tr '\n' ' ')
+
+                # Extract the specified files
+                eval "tar -xzf \"${temp_tar}\" -C \"${tool_dir}\" ${files_to_extract}"
             else
                 # Extract all files
                 tar -xzf "${temp_tar}" -C "${tool_dir}"
@@ -170,9 +173,12 @@ download_tool() {
     return 0
 }
 
-# Download tools for Linux platforms only (OCI artifacts are for containers)
+# Download tools for all platforms
 echo ""
-echo "📦 Downloading tools for Linux platforms..."
+echo "📦 Downloading tools for all platforms..."
+
+# Default platforms to build
+DEFAULT_PLATFORMS="${PLATFORMS:-linux/amd64,darwin/arm64}"
 
 # Determine platforms to build
 if [ -n "${BUILD_OS:-}" ] && [ -n "${BUILD_ARCH:-}" ]; then
@@ -183,21 +189,21 @@ if [ -n "${BUILD_OS:-}" ] && [ -n "${BUILD_ARCH:-}" ]; then
         exit 1
     fi
 else
-    # Default: build both platforms
-    if ! download_tool "linux" "amd64"; then
-        echo "Failed to download tools for linux/amd64"
-        exit 1
-    fi
-
-    if ! download_tool "linux" "arm64"; then
-        echo "Failed to download tools for linux/arm64"
-        exit 1
-    fi
+    # Build all specified platforms
+    IFS=',' read -ra PLATFORM_ARRAY <<<"$DEFAULT_PLATFORMS"
+    for platform in "${PLATFORM_ARRAY[@]}"; do
+        os=$(echo "$platform" | cut -d'/' -f1)
+        arch=$(echo "$platform" | cut -d'/' -f2)
+        echo "Building platform: ${os}/${arch}"
+        if ! download_tool "${os}" "${arch}"; then
+            echo "Failed to download tools for ${os}/${arch}"
+            exit 1
+        fi
+    done
 fi
 
 echo ""
-echo "ℹ️  Note: OCI artifacts only include Linux binaries (containers run on Linux)"
-echo "   For macOS/Darwin, download tools separately from their official releases"
+echo "ℹ️  Note: OCI artifacts now support all platforms including Darwin/macOS"
 
 # This function will be called for each platform
 create_platform_manifest_annotations() {
@@ -226,23 +232,23 @@ EOF
 if [ "$BUILD_ONLY" = "true" ]; then
     echo ""
     echo "📁 Creating build directory structure..."
-    
+
     BUILD_DIR="${BUILD_DIR:-build}"
     rm -rf "${BUILD_DIR}"
     mkdir -p "${BUILD_DIR}"
-    
+
     # Prepare annotation files for each platform
     for platform_dir in "${TEMP_DIR}"/*-*; do
         if [ -d "$platform_dir" ]; then
             platform=$(basename "$platform_dir")
             os=$(echo "$platform" | cut -d'-' -f1)
             arch=$(echo "$platform" | cut -d'-' -f2)
-            
+
             echo "  Preparing ${platform}..."
-            
+
             # Create platform-specific manifest annotations
             create_platform_manifest_annotations "${os}" "${arch}" "${platform_dir}/manifest-annotations.json"
-            
+
             # Create file annotations for this platform
             echo '{' >"${platform_dir}/file-annotations.json"
             first=true
@@ -267,7 +273,7 @@ if [ "$BUILD_ONLY" = "true" ]; then
             done
             echo '' >>"${platform_dir}/file-annotations.json"
             echo '}' >>"${platform_dir}/file-annotations.json"
-            
+
             # Create a config.json for this platform
             cat >"${platform_dir}/config.json" <<EOF
 {
@@ -275,12 +281,12 @@ if [ "$BUILD_ONLY" = "true" ]; then
   "os": "${os}"
 }
 EOF
-            
+
             # Copy to build directory
             cp -r "${platform_dir}" "${BUILD_DIR}/"
         fi
     done
-    
+
     echo ""
     echo "✅ Build complete! Artifacts are in ${BUILD_DIR}/"
     echo ""
@@ -342,7 +348,10 @@ for platform_dir in "${TEMP_DIR}"/*-*; do
 EOF
 
         # Build oras push command with files and media types from config
-        push_cmd="oras push \"${ARTIFACT}-${os}-${arch}\""
+        # Use a temporary tag for each platform
+        TEMP_TAG="${TAG}-temp-${os}-${arch}-$$"
+        push_cmd="oras push \"${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG}\""
+        push_cmd+=" --artifact-type \"application/vnd.uds.tools.collection.v1\""
         push_cmd+=" --config \"config.json:application/vnd.oci.image.config.v1+json\""
         push_cmd+=" --annotation-file \"file-annotations.json\""
         push_cmd+=" --annotation-file \"manifest-annotations.json\""
@@ -365,28 +374,84 @@ EOF
     fi
 done
 
-# Summary of what was pushed
+# Collect all temporary platform tags
 echo ""
-echo "📋 Platform-specific artifacts pushed:"
-echo ""
-
-# List all pushed artifacts
+echo "📋 Creating multi-platform manifest..."
+TEMP_TAGS=()
+TEMP_TAG_NAMES=()
 for platform_dir in "${TEMP_DIR}"/*-*; do
     if [ -d "$platform_dir" ]; then
         platform=$(basename "$platform_dir")
-        echo "  ✅ ${ARTIFACT}-${platform}"
+        os=$(echo "$platform" | cut -d'-' -f1)
+        arch=$(echo "$platform" | cut -d'-' -f2)
+        TEMP_TAG="${TAG}-temp-${os}-${arch}-$$"
+        TEMP_TAGS+=("${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG}")
+        TEMP_TAG_NAMES+=("${TEMP_TAG}")
+        echo "  ✓ Pushed ${os}/${arch} (temporary tag: ${TEMP_TAG})"
     fi
 done
+
+# Create manifest index with the final tag
+if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
+    echo ""
+    echo "🔗 Creating unified multi-platform manifest..."
+
+    # First check if this version of ORAS supports manifest index
+    if oras manifest index --help &>/dev/null 2>&1; then
+        # Create the index with the final tag
+        # Note: ORAS v1.3.0-beta.3 automatically pushes the index when created
+        # The command expects: oras manifest index create <target> <source-tags>...
+        if oras manifest index create "${ARTIFACT}" "${TEMP_TAG_NAMES[@]}" \
+            --annotation "org.opencontainers.image.title=UDS k3d Cilium Tools" \
+            --annotation "org.opencontainers.image.description=CLI tools for UDS k3d Cilium deployment (multi-platform)" \
+            --annotation "org.opencontainers.image.version=${TAG}" \
+            --annotation "org.opencontainers.image.source=https://github.com/mkm29/uds-tooling" \
+            --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"; then
+
+            echo "  ✅ Created and pushed multi-platform manifest: ${ARTIFACT}"
+
+            # Clean up temporary tags
+            echo ""
+            echo "🧹 Cleaning up temporary tags..."
+            for i in "${!TEMP_TAG_NAMES[@]}"; do
+                if oras manifest delete "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG_NAMES[$i]}" --force &>/dev/null; then
+                    echo "  ✓ Deleted temporary tag: ${TEMP_TAG_NAMES[$i]}"
+                else
+                    echo "  ⚠️  Failed to delete temporary tag: ${TEMP_TAG_NAMES[$i]}"
+                fi
+            done
+        else
+            echo "  ❌ Failed to create manifest index"
+            exit 1
+        fi
+    else
+        echo "  ⚠️  Warning: Your version of ORAS doesn't support manifest index creation"
+        echo "  ℹ️  Falling back to platform-specific tags"
+        # If manifest index is not supported, create platform-specific tags from temp tags
+        for i in "${!TEMP_TAGS[@]}"; do
+            # Extract platform from the temp tag name
+            temp_tag="${TEMP_TAG_NAMES[$i]}"
+            # Format: v1.0.0-temp-linux-amd64-12345
+            # Extract the platform part (linux-amd64)
+            platform=$(echo "$temp_tag" | sed -E 's/.*-temp-(.*)-[0-9]+$/\1/')
+
+            # Copy manifest from temp tag to platform-specific tag
+            echo "  Creating platform-specific tag: ${ARTIFACT}-${platform}"
+            oras manifest fetch "${TEMP_TAGS[$i]}" |
+                oras manifest push "${ARTIFACT}-${platform}"
+        done
+    fi
+fi
 
 echo ""
 echo "✅ Successfully built and pushed ORAS artifacts!"
 echo ""
-echo "To use the tools on Linux:"
-echo "  oras pull ${ARTIFACT}-linux-amd64"
-echo "  oras pull ${ARTIFACT}-linux-arm64"
+echo "Single multi-platform artifact created:"
+echo "  ${ARTIFACT}"
 echo ""
-echo "Or use the installer script (auto-detects platform):"
+echo "To use the tools (specify platform):"
+echo "  oras pull ${ARTIFACT} --platform linux/amd64"
+echo "  oras pull ${ARTIFACT} --platform darwin/arm64"
+echo ""
+echo "Or use the installer script:"
 echo "  ./bin/use-tools-artifact.sh"
-echo ""
-echo "Note: ORAS artifacts contain Linux binaries only."
-echo "For macOS/Darwin, download tools directly from their official releases."

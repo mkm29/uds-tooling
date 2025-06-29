@@ -37,7 +37,7 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm64
+          - darwin/arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
           REPOSITORY="${{ github.event.repository.name }}/tools"
 
           # Pull artifacts for each platform
-          for platform in linux-amd64 linux-arm64; do
+          for platform in linux-amd64 darwin-arm64; do
             echo "Pulling ${platform} artifacts..."
             mkdir -p "tools-${platform}"
             oras pull "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}-${platform}" \
@@ -165,7 +165,7 @@ jobs:
 
             1. Download the appropriate tarball for your platform:
                - Linux AMD64: `uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-amd64.tar.gz`
-               - Linux ARM64: `uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-arm64.tar.gz`
+               - macOS Apple Silicon: `uds-tools-${{ needs.release-please.outputs.tag_name }}-darwin-arm64.tar.gz`
 
             2. Extract and install:
                ```bash
@@ -175,11 +175,12 @@ jobs:
 
             ### Using ORAS (Container Registry)
             ```bash
-            # Linux AMD64
-            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-amd64
+            # Automatic platform selection
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}
 
-            # Linux ARM64
-            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-arm64
+            # Or specify platform explicitly
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-amd64
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-darwin-arm64
             ```
 
             ## Included Tools

@@ -128,24 +128,38 @@ if echo "$MANIFEST" | jq -e '.layers[0].annotations."org.opencontainers.image.ti
     # It's an ORAS artifact
     echo "Detected ORAS artifact"
 
-    # For ORAS artifacts, we need to use platform-specific tags
-    PLATFORM_IMAGE="${IMAGE}-${OS}-${ARCH}"
-    echo "Pulling ${PLATFORM_IMAGE}..."
-
-    if ! oras pull "${PLATFORM_IMAGE}" \
-        -o "${TEMP_DIR}"; then
-        echo ""
-        echo -e "${RED}Failed to pull ORAS artifact.${NC}"
-        echo "This might be because:"
-        echo "1. The platform-specific tag doesn't exist"
-        echo "2. Authentication is required"
-        echo ""
-        echo "Trying base tag with platform flag..."
-        # Try with platform flag as fallback
-        if ! oras pull "${IMAGE}" -o "${TEMP_DIR}"; then
+    # Check if manifest is an index (multi-platform)
+    MEDIA_TYPE=$(echo "$MANIFEST" | jq -r '.mediaType // ""')
+    
+    if [[ "$MEDIA_TYPE" == "application/vnd.oci.image.index.v1+json" ]]; then
+        # It's a manifest index - ORAS will automatically select the right platform
+        echo "Detected multi-platform manifest index"
+        echo "ORAS will automatically select platform: ${OS}/${ARCH}"
+        
+        if ! oras pull "${IMAGE}" --platform "${OS}/${ARCH}" -o "${TEMP_DIR}"; then
             echo -e "${RED}Failed to pull ORAS artifact.${NC}"
-            echo "See tools/SETUP.md for detailed setup instructions."
+            echo "This might be because:"
+            echo "1. Your platform (${OS}/${ARCH}) is not available in the manifest"
+            echo "2. Authentication is required"
             exit 1
+        fi
+    else
+        # Single platform manifest - try platform-specific tag first
+        echo "Detected single platform manifest"
+        PLATFORM_IMAGE="${IMAGE}-${OS}-${ARCH}"
+        echo "Trying platform-specific tag: ${PLATFORM_IMAGE}..."
+
+        if ! oras pull "${PLATFORM_IMAGE}" -o "${TEMP_DIR}" 2>/dev/null; then
+            echo "Platform-specific tag not found, trying base tag..."
+            # Try base tag as fallback (might work if it's the right platform)
+            if ! oras pull "${IMAGE}" -o "${TEMP_DIR}"; then
+                echo -e "${RED}Failed to pull ORAS artifact.${NC}"
+                echo "This might be because:"
+                echo "1. The platform-specific tag doesn't exist"
+                echo "2. Your platform doesn't match the artifact"
+                echo "3. Authentication is required"
+                exit 1
+            fi
         fi
     fi
 else
