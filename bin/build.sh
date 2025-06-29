@@ -349,7 +349,7 @@ EOF
 
         # Build oras push command with files and media types from config
         # Use a temporary tag for each platform
-        TEMP_TAG="${TAG}-temp-${os}-${arch}-$$"
+        TEMP_TAG="${TAG}-${os}-${arch}-$$"
         push_cmd="oras push \"${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG}\""
         push_cmd+=" --artifact-type \"application/vnd.uds.tools.collection.v1\""
         push_cmd+=" --config \"config.json:application/vnd.oci.image.config.v1+json\""
@@ -384,7 +384,7 @@ for platform_dir in "${TEMP_DIR}"/*-*; do
         platform=$(basename "$platform_dir")
         os=$(echo "$platform" | cut -d'-' -f1)
         arch=$(echo "$platform" | cut -d'-' -f2)
-        TEMP_TAG="${TAG}-temp-${os}-${arch}-$$"
+        TEMP_TAG="${TAG}-${os}-${arch}-$$"
         TEMP_TAGS+=("${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG}")
         TEMP_TAG_NAMES+=("${TEMP_TAG}")
         echo "  ✓ Pushed ${os}/${arch} (temporary tag: ${TEMP_TAG})"
@@ -409,17 +409,6 @@ if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
             --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"; then
 
             echo "  ✅ Created and pushed multi-platform manifest: ${ARTIFACT}"
-
-            # Clean up temporary tags
-            echo ""
-            echo "🧹 Cleaning up temporary tags..."
-            for i in "${!TEMP_TAG_NAMES[@]}"; do
-                if oras manifest delete "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TEMP_TAG_NAMES[$i]}" --force &>/dev/null; then
-                    echo "  ✓ Deleted temporary tag: ${TEMP_TAG_NAMES[$i]}"
-                else
-                    echo "  ⚠️  Failed to delete temporary tag: ${TEMP_TAG_NAMES[$i]}"
-                fi
-            done
         else
             echo "  ❌ Failed to create manifest index"
             exit 1
@@ -431,9 +420,9 @@ if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
         for i in "${!TEMP_TAGS[@]}"; do
             # Extract platform from the temp tag name
             temp_tag="${TEMP_TAG_NAMES[$i]}"
-            # Format: v1.0.0-temp-linux-amd64-12345
+            # Format: v1.0.0-linux-amd64-12345
             # Extract the platform part (linux-amd64)
-            platform=$(echo "$temp_tag" | sed -E 's/.*-temp-(.*)-[0-9]+$/\1/')
+            platform=$(echo "$temp_tag" | sed -E 's/.*-(.*)-[0-9]+$/\1/')
 
             # Copy manifest from temp tag to platform-specific tag
             echo "  Creating platform-specific tag: ${ARTIFACT}-${platform}"

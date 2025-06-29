@@ -84,7 +84,7 @@ jobs:
           cd "build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
 
           # Use temporary tag like build.sh does
-          TEMP_TAG="${TAG}-temp-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-$$"
+          TEMP_TAG="${TAG}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-$$"
           ARTIFACT="${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TEMP_TAG}"
 
           # Build oras push command
@@ -113,7 +113,7 @@ jobs:
         run: |
           TAG="${{ steps.determine-tag.outputs.TAG }}"
           PLATFORM="${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
-          TEMP_TAG="${TAG}-temp-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-$$"
+          TEMP_TAG="${TAG}-${{ matrix.platform.os }}-${{ matrix.platform.arch }}-$$"
 
           echo "## Build Summary for ${PLATFORM}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -165,7 +165,7 @@ jobs:
           # Look for temporary tags created by the build jobs
           for platform in "linux-amd64" "darwin-arm64"; do
             # List tags and find the most recent temp tag for this platform
-            TEMP_TAG=$(oras repo tags "${REGISTRY}/${NAMESPACE}/${REPOSITORY}" | grep "^${TAG}-temp-${platform}-" | head -1)
+            TEMP_TAG=$(oras repo tags "${REGISTRY}/${NAMESPACE}/${REPOSITORY}" | grep "^${TAG}-${platform}-" | head -1)
             if [ -n "$TEMP_TAG" ]; then
               TEMP_TAGS+=("$TEMP_TAG")
               echo "Found temporary tag: $TEMP_TAG"
@@ -186,16 +186,6 @@ jobs:
               --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
             echo "Created multi-platform manifest index: ${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}"
-
-            # Clean up temporary tags
-            echo "Cleaning up temporary tags..."
-            for temp_tag in "${TEMP_TAGS[@]}"; do
-              if oras manifest delete "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${temp_tag}" --force; then
-                echo "✓ Deleted temporary tag: ${temp_tag}"
-              else
-                echo "⚠️  Failed to delete temporary tag: ${temp_tag}"
-              fi
-            done
           else
             echo "❌ Could not find all temporary platform tags"
             exit 1
@@ -211,6 +201,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@v1
+        with:
+          url: https://github.com/oras-project/oras/releases/download/v1.3.0-beta.3/oras_1.3.0-beta.3_linux_amd64.tar.gz
+          checksum: 8d647a3e1761aee86fe20f5e4d3088f1208f721cca6f4d62ffd810a420de171f
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Determine tag
         id: determine-tag
         run: |
@@ -222,52 +222,95 @@ jobs:
             echo "TAG=latest" >> $GITHUB_OUTPUT
           fi
 
+      - name: Pull and package artifacts
+        run: |
+          TAG="${{ steps.determine-tag.outputs.TAG }}"
+          REGISTRY="ghcr.io"
+          NAMESPACE="${{ github.repository_owner }}"
+          REPOSITORY="${{ github.event.repository.name }}/tools"
+
+          # Pull artifacts for each platform
+          for platform in linux-amd64 darwin-arm64; do
+            echo "Pulling ${platform} artifacts..."
+            mkdir -p "tools-${platform}"
+            oras pull "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}" \
+              --platform "${platform//-//}" \
+              -o "tools-${platform}"
+
+            # Create tarball
+            tar -czf "uds-tools-${TAG}-${platform}.tar.gz" -C "tools-${platform}" .
+          done
+
+          # Create checksums
+          sha256sum uds-tools-*.tar.gz > checksums.txt
+
       - name: Create Release Notes
         run: |
           TAG="${{ steps.determine-tag.outputs.TAG }}"
 
           cat > release-notes.md << EOF
-          ## UDS Tools OCI Artifact ${TAG}
+          ## Installation
 
-          This release contains CLI tools packaged as OCI artifacts for Linux platforms.
-
-          ### Artifacts
-
-          Platform-specific artifacts are available at:
-          - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64\`
-          - \`${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64\`
-
-          ### Installation
-
-          #### Quick Install (Recommended)
+          ### Quick Install (Recommended)
           \`\`\`bash
-          # One-line install
-          curl -sL https://raw.githubusercontent.com/${{ github.repository }}/${TAG}/bin/install.sh | bash
+          # Download and run the installer with its dependencies
+          curl -sL https://github.com/${{ github.repository }}/releases/download/${TAG}/install.sh | bash
           \`\`\`
 
-          #### Manual Install with ORAS
-          \`\`\`bash
-          # Install ORAS
-          brew install oras  # macOS
-          # or see https://oras.land/docs/installation
+          **Note**: The installer will automatically download required dependencies (common.sh, tools-config.json, use-tools-artifact.sh)
 
-          # Pull for your platform
-          oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-amd64
-          # or
-          oras pull ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.REPOSITORY }}:${TAG}-linux-arm64
+          ### Manual Installation
+
+          #### Option 1: Download Pre-built Binaries
+          1. Download the appropriate tarball for your platform:
+             - Linux AMD64: \`uds-tools-${TAG}-linux-amd64.tar.gz\`
+             - macOS Apple Silicon: \`uds-tools-${TAG}-darwin-arm64.tar.gz\`
+
+          2. Extract and install:
+             \`\`\`bash
+             tar -xzf uds-tools-${TAG}-linux-amd64.tar.gz
+             sudo cp bin/* /usr/local/bin/
+             \`\`\`
+
+          #### Option 2: Use the Installer Script Locally
+          1. Download the required scripts:
+             \`\`\`bash
+             wget https://github.com/${{ github.repository }}/releases/download/${TAG}/install.sh
+             wget https://github.com/${{ github.repository }}/releases/download/${TAG}/common.sh
+             wget https://github.com/${{ github.repository }}/releases/download/${TAG}/tools-config.json
+             wget https://github.com/${{ github.repository }}/releases/download/${TAG}/use-tools-artifact.sh
+             chmod +x install.sh use-tools-artifact.sh
+             \`\`\`
+
+          2. Run the installer:
+             \`\`\`bash
+             ./install.sh
+             \`\`\`
+
+          ### Using ORAS (Container Registry)
+          \`\`\`bash
+          # Linux AMD64
+          oras pull ghcr.io/${{ github.repository }}/tools:${TAG} --platform linux/amd64
+
+          # macOS Apple Silicon
+          oras pull ghcr.io/${{ github.repository }}/tools:${TAG} --platform darwin/arm64
           \`\`\`
 
-          ### Tools Included
+          **Note**: You must specify \`--platform\` when pulling to avoid filename conflicts
 
+          ## Included Tools
           EOF
 
           # Add tool versions
           for tool in $(jq -r '.tools | keys[]' tools-config.json); do
             tool_name=$(jq -r ".tools.${tool}.name" tools-config.json)
             version=$(jq -r ".tools.${tool}.version" tools-config.json)
-            description=$(jq -r ".tools.${tool}.description" tools-config.json)
-            echo "- **${tool_name}** (${version}): ${description}" >> release-notes.md
+            echo "- ${tool_name} ${version}" >> release-notes.md
           done
+
+          echo "" >> release-notes.md
+          echo "## Checksums" >> release-notes.md
+          echo "See \`checksums.txt\` in the release assets for SHA256 checksums of all files." >> release-notes.md
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -277,3 +320,27 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: false
+          files: |
+            uds-tools-*.tar.gz
+            checksums.txt
+            bin/install.sh
+            bin/common.sh
+            bin/use-tools-artifact.sh
+            tools-config.json
+
+      - name: Create GitHub Release (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            uds-tools-*.tar.gz
+            checksums.txt
+            bin/install.sh
+            bin/common.sh
+            bin/use-tools-artifact.sh
+            tools-config.json
