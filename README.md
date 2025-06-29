@@ -247,6 +247,21 @@ The workflows are designed to work with protected main branches:
 - All changes go through PR review process
 - Automated tool updates create PRs for review
 
+### Required Repository Settings
+
+For the release-please and update-tools workflows to create PRs:
+
+1. **Allow GitHub Actions to create PRs** (Recommended):
+   - Go to Settings → Actions → General
+   - Under "Workflow permissions", check "Allow GitHub Actions to create and approve pull requests"
+
+   OR
+
+2. **Use a Personal Access Token (PAT)**:
+   - Create a PAT with `repo` and `workflow` permissions
+   - Add it as a repository secret named `RELEASE_PLEASE_TOKEN`
+   - Update the release workflow to use `${{ secrets.RELEASE_PLEASE_TOKEN }}` instead of `${{ secrets.GITHUB_TOKEN }}`
+
 ### GitHub Actions Example
 
 ```yaml
