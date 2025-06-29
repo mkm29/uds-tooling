@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 # Load tools configuration
-if ! load_tools_config; then
+if ! load_tools_config ""; then
     echo "Failed to load tools configuration"
     exit 1
 fi
@@ -39,7 +39,7 @@ done
 echo ""
 
 # Install ORAS if needed
-if ! install_oras; then
+if ! install_oras ""; then
     exit 1
 fi
 

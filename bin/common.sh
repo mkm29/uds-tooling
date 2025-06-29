@@ -176,7 +176,7 @@ download_with_retry() {
     local max_retries=${3:-3}
     local retry=0
 
-    while [ $retry -lt $max_retries ]; do
+    while [ $retry -lt "$max_retries" ]; do
         if curl -fL --progress-bar "${url}" -o "${output}"; then
             return 0
         else

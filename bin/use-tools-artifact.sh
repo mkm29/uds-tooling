@@ -41,14 +41,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
 # Load tools configuration
-if ! load_tools_config; then
+if ! load_tools_config ""; then
     echo "Failed to load tools configuration"
     exit 1
 fi
 
 # Detect platform
-PLATFORM=$(detect_platform)
-if [ $? -ne 0 ]; then
+if ! PLATFORM=$(detect_platform); then
     echo "Failed to detect platform"
     exit 1
 fi

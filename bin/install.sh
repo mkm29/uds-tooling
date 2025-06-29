@@ -33,7 +33,7 @@ arm64)
 esac
 
 # Convert OS names for downloads
-OS_LOWER=$(echo ${OS} | tr '[:upper:]' '[:lower:]')
+OS_LOWER=$(echo "${OS}" | tr '[:upper:]' '[:lower:]')
 
 echo "🚀 Installing UDS k3d Cilium tools for ${OS}/${ARCH}..."
 echo ""
