@@ -32,7 +32,8 @@ jobs:
       - name: Set up ORAS
         uses: oras-project/setup-oras@v1
         with:
-          version: 1.2.3
+          url: https://github.com/oras-project/oras/releases/download/v1.3.0-beta.3/oras_1.3.0-beta.3_linux_amd64.tar.gz
+          checksum: 8d647a3e1761aee86fe20f5e4d3088f1208f721cca6f4d62ffd810a420de171f
 
       - name: Install dependencies
         run: |
