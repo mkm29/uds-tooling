@@ -1,6 +1,7 @@
 # UDS Tools OCI Artifact
 
-This repository provides scripts to create and distribute OCI artifacts that bundle CLI tools required for UDS (Unicorn Delivery Service) deployments. The tools are configured via a central JSON file for easy version management and extensibility.
+This repository provides scripts to create and distribute OCI artifacts that bundle CLI tools required for UDS (Unicorn Delivery Service) deployments.
+The tools are configured via a central JSON file for easy version management and extensibility.
 
 📚 **First time?** See the [First-Time Setup Guide](SETUP.md) for detailed instructions.
 
@@ -83,12 +84,16 @@ CILIUM_CLI_VERSION=v0.18.4 \
 # Build single platform for CI/CD
 BUILD_OS=linux BUILD_ARCH=amd64 BUILD_ONLY=true ./bin/build.sh
 ```
+
 This creates proper OCI artifacts with file annotations that ORAS can pull directly.
 **Note**:
+
 - ORAS artifacts only include Linux binaries (linux/amd64, linux/arm64) since OCI registries are primarily for container images that run on Linux
 - Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
 - ORAS doesn't currently support multi-platform index manifests like Docker, so platform-specific tags are used instead
+
 ## Using the Tools
+
 ### Quick Install
 
 ```bash
@@ -236,6 +241,7 @@ This repository includes GitHub Actions workflows optimized for protected branch
 ### Protected Branch Support
 
 The workflows are designed to work with protected main branches:
+
 - PRs are tested without pushing artifacts
 - Only tagged releases or manual dispatches trigger artifact pushes
 - All changes go through PR review process

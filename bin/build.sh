@@ -5,6 +5,7 @@ set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=bin/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 # Load tools configuration
@@ -147,9 +148,9 @@ download_tool() {
                 rm -rf "${extract_dir}"
             elif [ -n "$extract_files" ]; then
                 # Extract specific files directly
-                local files
-                files=$(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE")
-                tar -xzf "${temp_tar}" -C "${tool_dir}" $files
+                local files_array
+                readarray -t files_array < <(jq -r ".tools.${tool}.extract_files[]" "$TOOLS_CONFIG_FILE")
+                tar -xzf "${temp_tar}" -C "${tool_dir}" "${files_array[@]}"
             else
                 # Extract all files
                 tar -xzf "${temp_tar}" -C "${tool_dir}"
