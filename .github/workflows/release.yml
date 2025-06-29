@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Release Please
         uses: googleapis/release-please-action@v4
         id: release
@@ -108,14 +108,14 @@ jobs:
           REGISTRY="ghcr.io"
           NAMESPACE="${{ github.repository_owner }}"
           REPOSITORY="${{ github.event.repository.name }}/tools"
-          
+
           # The build.sh script pushed temporary tags, we need to find them
           # They follow the pattern: ${TAG}-temp-${os}-${arch}-${PID}
           # Since we can't predict the PID, we'll look for tags that start with ${TAG}-temp-
-          
+
           echo "Looking for temporary platform tags..."
           TEMP_TAGS=()
-          
+
           # Try to find the temporary tags (they should exist from the build jobs)
           for platform in "linux-amd64" "darwin-arm64"; do
             # List tags and find the most recent temp tag for this platform
@@ -127,10 +127,10 @@ jobs:
               echo "Warning: Could not find temporary tag for ${platform}"
             fi
           done
-          
+
           if [ ${#TEMP_TAGS[@]} -eq 2 ]; then
             echo "Creating manifest index with tag: ${TAG}"
-            
+
             # Create the manifest index
             oras manifest index create "${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}" "${TEMP_TAGS[@]}" \
               --annotation "org.opencontainers.image.title=UDS k3d Cilium Tools" \
@@ -138,9 +138,9 @@ jobs:
               --annotation "org.opencontainers.image.version=${TAG}" \
               --annotation "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
               --annotation "org.opencontainers.artifact.created=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-            
-            echo "✅ Created multi-platform manifest index: ${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}"
-            
+
+            echo "Created multi-platform manifest index: ${REGISTRY}/${NAMESPACE}/${REPOSITORY}:${TAG}"
+
             # Clean up temporary tags
             echo "Cleaning up temporary tags..."
             for temp_tag in "${TEMP_TAGS[@]}"; do
@@ -201,7 +201,9 @@ jobs:
             uds-tools-*.tar.gz
             checksums.txt
             bin/install.sh
+            bin/common.sh
             bin/use-tools-artifact.sh
+            tools-config.json
 
       - name: Update release notes
         uses: softprops/action-gh-release@v2
@@ -214,11 +216,15 @@ jobs:
 
             ### Quick Install (Recommended)
             ```bash
+            # Download and run the installer with its dependencies
             curl -sL https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/install.sh | bash
             ```
 
+            **Note**: The installer will automatically download required dependencies (common.sh, tools-config.json, use-tools-artifact.sh)
+
             ### Manual Installation
 
+            #### Option 1: Download Pre-built Binaries
             1. Download the appropriate tarball for your platform:
                - Linux AMD64: `uds-tools-${{ needs.release-please.outputs.tag_name }}-linux-amd64.tar.gz`
                - macOS Apple Silicon: `uds-tools-${{ needs.release-please.outputs.tag_name }}-darwin-arm64.tar.gz`
@@ -229,15 +235,31 @@ jobs:
                sudo cp bin/* /usr/local/bin/
                ```
 
+            #### Option 2: Use the Installer Script Locally
+            1. Download the required scripts:
+               ```bash
+               wget https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/install.sh
+               wget https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/common.sh
+               wget https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/tools-config.json
+               wget https://github.com/${{ github.repository }}/releases/download/${{ needs.release-please.outputs.tag_name }}/use-tools-artifact.sh
+               chmod +x install.sh use-tools-artifact.sh
+               ```
+
+            2. Run the installer:
+               ```bash
+               ./install.sh
+               ```
+
             ### Using ORAS (Container Registry)
             ```bash
-            # Automatic platform selection
-            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}
+            # Linux AMD64
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }} --platform linux/amd64
 
-            # Or specify platform explicitly
-            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-linux-amd64
-            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }}-darwin-arm64
+            # macOS Apple Silicon
+            oras pull ghcr.io/${{ github.repository }}/tools:${{ needs.release-please.outputs.tag_name }} --platform darwin/arm64
             ```
+
+            **Note**: You must specify `--platform` when pulling to avoid filename conflicts
 
             ## Included Tools
             - UDS CLI v0.27.7
