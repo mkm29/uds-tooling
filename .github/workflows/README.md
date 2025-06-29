@@ -101,6 +101,11 @@ No additional secrets required. Workflows use:
   - Writing packages to GitHub Container Registry
   - Creating releases and pull requests
 
+**Important**: For workflows that create pull requests (release-please, update-tools), you must:
+
+1. Enable "Allow GitHub Actions to create and approve pull requests" in Settings → Actions → General
+2. OR use a Personal Access Token with `repo` and `workflow` permissions
+
 ## Usage Examples
 
 ### Manual Build and Push
