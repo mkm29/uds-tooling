@@ -427,10 +427,16 @@ if [ "${#TEMP_TAGS[@]}" -gt 0 ] && [ "$BUILD_ONLY" != "true" ]; then
     else
         echo "  ⚠️  Warning: Your version of ORAS doesn't support manifest index creation"
         echo "  ℹ️  Falling back to platform-specific tags"
-        # If manifest index is not supported, re-tag with platform-specific tags
+        # If manifest index is not supported, create platform-specific tags from temp tags
         for i in "${!TEMP_TAGS[@]}"; do
-            platform_dir="${TEMP_DIR}"/$(ls "${TEMP_DIR}" | sed -n "$((i+1))p")
-            platform=$(basename "$platform_dir")
+            # Extract platform from the temp tag name
+            temp_tag="${TEMP_TAG_NAMES[$i]}"
+            # Format: v1.0.0-temp-linux-amd64-12345
+            # Extract the platform part (linux-amd64)
+            platform=$(echo "$temp_tag" | sed -E 's/.*-temp-(.*)-[0-9]+$/\1/')
+            
+            # Copy manifest from temp tag to platform-specific tag
+            echo "  Creating platform-specific tag: ${ARTIFACT}-${platform}"
             oras manifest fetch "${TEMP_TAGS[$i]}" | \
                 oras manifest push "${ARTIFACT}-${platform}"
         done
