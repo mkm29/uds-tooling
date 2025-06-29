@@ -251,16 +251,44 @@ The workflows are designed to work with protected main branches:
 
 For the release-please and update-tools workflows to create PRs:
 
-1. **Allow GitHub Actions to create PRs** (Recommended):
+1. **Allow GitHub Actions to create PRs** (Required):
    - Go to Settings → Actions → General
    - Under "Workflow permissions", check "Allow GitHub Actions to create and approve pull requests"
 
-   OR
+### Enabling Release Labels (Optional)
 
-2. **Use a Personal Access Token (PAT)**:
-   - Create a PAT with `repo` and `workflow` permissions
-   - Add it as a repository secret named `RELEASE_PLEASE_TOKEN`
-   - Update the release workflow to use `${{ secrets.RELEASE_PLEASE_TOKEN }}` instead of `${{ secrets.GITHUB_TOKEN }}`
+The release workflow currently skips label creation to avoid permission issues. To enable automatic labeling:
+
+#### Option 1: Pre-create Labels (Recommended)
+
+```bash
+# Install GitHub CLI if not already installed
+brew install gh  # macOS
+# or see https://cli.github.com/
+
+# Authenticate with GitHub
+gh auth login
+
+# Run the label creation script
+./bin/create-release-labels.sh
+
+# Then remove 'skip-labeling: true' from .github/workflows/release.yml
+```
+
+#### Option 2: Use a Personal Access Token
+
+1. Create a PAT with full `repo` scope at [https://github.com/settings/tokens](https://github.com/settings/tokens)
+2. Add it as a repository secret named `RELEASE_PLEASE_TOKEN`
+3. Update `.github/workflows/release.yml`:
+
+   ```yaml
+   token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+   # Remove skip-labeling: true
+   ```
+
+#### Option 3: Use GitHub App (Advanced)
+
+Create a GitHub App with label permissions and use its token instead of `GITHUB_TOKEN`
 
 ### GitHub Actions Example
 
