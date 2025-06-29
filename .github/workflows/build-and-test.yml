@@ -22,7 +22,7 @@ jobs:
         platform:
           - os: linux
             arch: amd64
-          - os: linux
+          - os: darwin
             arch: arm64
 
     steps:

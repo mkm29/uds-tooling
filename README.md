@@ -83,14 +83,19 @@ CILIUM_CLI_VERSION=v0.18.4 \
 
 # Build single platform for CI/CD
 BUILD_OS=linux BUILD_ARCH=amd64 BUILD_ONLY=true ./bin/build.sh
+
+# Build for additional platforms (e.g., linux/arm64, darwin/amd64)
+PLATFORMS="linux/amd64,linux/arm64,darwin/amd64,darwin/arm64" ./bin/build.sh
 ```
 
 This creates proper OCI artifacts with file annotations that ORAS can pull directly.
 **Note**:
 
-- ORAS artifacts only include Linux binaries (linux/amd64, linux/arm64) since OCI registries are primarily for container images that run on Linux
-- Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
-- ORAS doesn't currently support multi-platform index manifests like Docker, so platform-specific tags are used instead
+- ORAS artifacts support all platforms; default build includes linux/amd64 and darwin/arm64
+- All platforms are combined into a single multi-platform manifest index
+- Only one tag is used (e.g., `v1.0.1`) but requires platform specification when pulling
+- The artifactType is set to `application/vnd.uds.tools.collection.v1` for proper artifact identification
+- **Important**: When pulling manually with `oras pull`, you must specify the `--platform` flag to avoid filename conflicts
 
 ## Using the Tools
 
@@ -182,7 +187,7 @@ source ~/.config/fish/config.fish
 brew install oras  # macOS with Homebrew
 
 # Or manually download for Linux
-ORAS_VERSION="1.2.3"
+ORAS_VERSION="1.3.0-beta.3"  # Required for manifest index support
 curl -LO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
 mkdir -p $HOME/.local/bin
 tar -xzf oras_${ORAS_VERSION}_linux_amd64.tar.gz -C $HOME/.local/bin oras
@@ -191,21 +196,32 @@ chmod +x $HOME/.local/bin/oras
 # Login to registry (if private)
 echo $CR_PAT | oras login ghcr.io -u YOUR_USERNAME --password-stdin
 
-# Pull the artifact for your platform (platform-specific tags)
-oras pull ghcr.io/mkm29/uds-tooling//tools:v1.0.1-linux-amd64 \
-  -o ./tools-bin
+# Pull the artifact - MUST specify platform to avoid filename conflicts
+# For Linux AMD64:
+oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1 --platform linux/amd64 -o ./tools-bin
 
-# Or for ARM64
-oras pull ghcr.io/mkm29/uds-tooling//tools:v1.0.1-linux-arm64 \
-  -o ./tools-bin
+# For macOS Apple Silicon:
+oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1 --platform darwin/arm64 -o ./tools-bin
 
-# Tools will be in the tools-bin/bin/ directory
-chmod +x ./tools-bin/bin/*
-./tools-bin/bin/uds version
+# Or auto-detect your platform:
+PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')/$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1 --platform ${PLATFORM} -o ./tools-bin
+
+# Tools will be extracted directly (no subdirectories)
+chmod +x ./tools-bin/*
+./tools-bin/uds version
 
 # Or install system-wide
-sudo cp tools-bin/bin/* $HOME/.local/bin/
+sudo cp tools-bin/* /usr/local/bin/
 ```
+
+#### Understanding Multi-Platform Manifests
+
+This project uses OCI manifest indexes (multi-platform manifests) to support multiple platforms with a single tag. When pulling:
+
+- **Always specify `--platform`**: Without it, ORAS may attempt to pull all platforms, causing filename conflicts
+- **Platform format**: Use `os/architecture` format (e.g., `linux/amd64`, `darwin/arm64`)
+- **Automatic detection**: The installer script (`use-tools-artifact.sh`) handles platform detection automatically
 
 ## CI/CD Integration
 
@@ -284,11 +300,11 @@ Create a GitHub App with label and pull request permissions, then use its token.
 - name: Set up ORAS
   uses: oras-project/setup-oras@v1
   with:
-    version: 1.2.3
+    version: 1.3.0-beta.3  # Required for manifest index support
 
 - name: Extract UDS Tools
   run: |
-    oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1-linux-amd64 -o /tmp/tools
+    oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1 --platform linux/amd64 -o /tmp/tools
     sudo cp /tmp/tools/* $HOME/.local/bin/
     sudo chmod +x $HOME/.local/bin/*
 - name: Verify Tools
@@ -309,10 +325,10 @@ install-tools:
   image: alpine:latest
   script:
     - apk add curl tar
-    - curl -LO https://github.com/oras-project/oras/releases/download/v1.2.3/oras_1.2.3_linux_amd64.tar.gz
-    - tar -xzf oras_1.2.3_linux_amd64.tar.gz
+    - curl -LO https://github.com/oras-project/oras/releases/download/v1.3.0-beta.3/oras_1.3.0-beta.3_linux_amd64.tar.gz
+    - tar -xzf oras_1.3.0-beta.3_linux_amd64.tar.gz
     - mv oras $HOME/.local/bin/
-    - oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1-linux-amd64 -o /tmp/tools
+    - oras pull ghcr.io/mkm29/uds-tooling/tools:v1.0.1 --platform linux/amd64 -o /tmp/tools
     - cp /tmp/tools/* $HOME/.local/bin/
     - chmod +x $HOME/.local/bin/*
     - uds version && helm version && cilium version && hubble version && k3d version && kubectl version --client && k9s version
@@ -453,11 +469,13 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 ### ORAS Artifact (`build.sh`)
 
 - Creates OCI artifacts with proper file annotations
-- Linux-only (linux/amd64, linux/arm64) - follows OCI container conventions
+- Multi-platform support (default: linux/amd64, darwin/arm64; configurable for other platforms)
 - Each binary is a separate layer with metadata
-- ORAS can pull and extract files directly
-- Best for direct file distribution in Linux environments
-- Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
+- Uses OCI manifest indexes for multi-platform support
+- Best for direct file distribution across all platforms
+- All platforms are combined into a single multi-platform manifest index
+- Only one tag is used (e.g., `v1.0.1`) with explicit platform selection via `--platform` flag
+- Requires ORAS v1.3.0+ for manifest index creation
 
 ## Contributing
 
@@ -558,11 +576,16 @@ brew install oras  # macOS
 # or download from https://github.com/oras-project/oras/releases
 
 # Platform selection issues
-# List available platforms
-oras manifest fetch ghcr.io/mkm29/uds-tooling//tools:v1.1.0 | jq '.manifests[].platform'
+# IMPORTANT: Always specify --platform when pulling multi-platform manifests
+oras pull ghcr.io/mkm29/uds-tooling/tools:v1.1.0 --platform linux/amd64 -o ./tools
 
-# Pull without platform selection (gets all platforms)
-oras pull ghcr.io/mkm29/uds-tooling//tools:v1.1.0 -o ./tools-all
+# List available platforms in the manifest index
+oras manifest fetch ghcr.io/mkm29/uds-tooling/tools:v1.1.0 | jq '.manifests[].platform'
+
+# "duplicate name" error fix
+# This error occurs when pulling without --platform flag
+# Wrong: oras pull ghcr.io/mkm29/uds-tooling/tools:v1.1.0 -o ./tools
+# Right: oras pull ghcr.io/mkm29/uds-tooling/tools:v1.1.0 --platform darwin/arm64 -o ./tools
 ```
 
 ### JSON Configuration Issues
