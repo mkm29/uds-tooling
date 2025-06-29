@@ -257,25 +257,11 @@ For the release-please and update-tools workflows to create PRs:
 
 ### Enabling Release Labels (Optional)
 
-The release workflow currently skips label creation to avoid permission issues. To enable automatic labeling:
+The release workflow currently skips label creation due to GitHub token limitations. The default `GITHUB_TOKEN` cannot manage labels on pull requests.
 
-#### Option 1: Pre-create Labels (Recommended)
+To enable automatic labeling, you must use one of these options:
 
-```bash
-# Install GitHub CLI if not already installed
-brew install gh  # macOS
-# or see https://cli.github.com/
-
-# Authenticate with GitHub
-gh auth login
-
-# Run the label creation script
-./bin/create-release-labels.sh
-
-# Then remove 'skip-labeling: true' from .github/workflows/release.yml
-```
-
-#### Option 2: Use a Personal Access Token
+#### Option 1: Use a Personal Access Token (Recommended)
 
 1. Create a PAT with full `repo` scope at [https://github.com/settings/tokens](https://github.com/settings/tokens)
 2. Add it as a repository secret named `RELEASE_PLEASE_TOKEN`
@@ -286,9 +272,11 @@ gh auth login
    # Remove skip-labeling: true
    ```
 
-#### Option 3: Use GitHub App (Advanced)
+#### Option 2: Use GitHub App
 
-Create a GitHub App with label permissions and use its token instead of `GITHUB_TOKEN`
+Create a GitHub App with label and pull request permissions, then use its token.
+
+**Note**: Pre-creating labels with `./bin/create-release-labels.sh` is not sufficient because the token still needs permission to add/remove labels from PRs, which the default `GITHUB_TOKEN` lacks.
 
 ### GitHub Actions Example
 
