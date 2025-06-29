@@ -428,6 +428,27 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 - Best for direct file distribution in Linux environments
 - Each platform is pushed as a separate tagged artifact (e.g., `v1.0.1-linux-amd64`, `v1.0.1-linux-arm64`)
 
+## Contributing
+
+### Commit Message Format
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and changelog generation. Please format your commits as:
+
+```
+<type>(<scope>): <subject>
+```
+
+Types:
+- `feat`: New features (bumps minor version)
+- `fix`: Bug fixes (bumps patch version)
+- `docs`: Documentation changes
+- `chore`: Maintenance tasks
+- `ci`: CI/CD changes
+- `test`: Test additions or changes
+- `refactor`: Code refactoring
+
+Example: `feat(tools): add new CLI tool to bundle`
+
 ## Repository Structure
 
 ```bash
