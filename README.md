@@ -434,11 +434,12 @@ REGISTRY_PASSWORD="${REGISTRY_TOKEN}" \
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning and changelog generation. Please format your commits as:
 
-```
+```bash
 <type>(<scope>): <subject>
 ```
 
 Types:
+
 - `feat`: New features (bumps minor version)
 - `fix`: Bug fixes (bumps patch version)
 - `docs`: Documentation changes
