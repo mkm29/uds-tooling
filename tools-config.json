@@ -2,7 +2,7 @@
   "tools": {
     "uds": {
       "name": "UDS CLI",
-      "version": "v0.27.7",
+      "version": "v0.27.8",
       "description": "UDS (Unicorn Delivery Service) CLI for managing deployments",
       "url_pattern": "https://github.com/defenseunicorns/uds-cli/releases/download/{version}/uds-cli_{version}_{os}_{arch}",
       "filetype": "binary",
@@ -47,7 +47,7 @@
     },
     "cilium": {
       "name": "Cilium CLI",
-      "version": "v0.18.4",
+      "version": "v0.18.5",
       "description": "CLI for Cilium CNI",
       "url_pattern": "https://github.com/cilium/cilium-cli/releases/download/{version}/cilium-{os}-{arch}.tar.gz",
       "filetype": "tar.gz",
@@ -113,7 +113,7 @@
     },
     "kubectl": {
       "name": "kubectl",
-      "version": "v1.33.2",
+      "version": "<html>\r\n<head><title>302 Found</title></head>\r\n<body>\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r",
       "description": "Kubernetes command-line tool",
       "url_pattern": "https://dl.k8s.io/release/{version}/bin/{os}/{arch}/kubectl",
       "filetype": "binary",
@@ -135,7 +135,7 @@
     },
     "k9s": {
       "name": "k9s",
-      "version": "v0.50.6",
+      "version": "v0.50.7",
       "description": "Kubernetes CLI to manage your clusters in style",
       "url_pattern": "https://github.com/derailed/k9s/releases/download/{version}/k9s_{os}_{arch}.tar.gz",
       "filetype": "tar.gz",
@@ -148,7 +148,9 @@
         "arm64": "arm64"
       },
       "executable_name": "k9s",
-      "extract_files": ["k9s"],
+      "extract_files": [
+        "k9s"
+      ],
       "oci_annotations": {
         "org.opencontainers.image.title": "k9s",
         "org.opencontainers.image.description": "k9s {version}",
@@ -162,7 +164,10 @@
     "namespace": "mkm29",
     "repository": "uds-tooling",
     "default_tag": "v1.0.0",
-    "platforms": ["linux/amd64", "darwin/arm64"],
+    "platforms": [
+      "linux/amd64",
+      "darwin/arm64"
+    ],
     "manifest_annotations": {
       "org.opencontainers.image.title": "UDS k3d Cilium Tools",
       "org.opencontainers.image.description": "CLI tools for UDS k3d Cilium deployment",
