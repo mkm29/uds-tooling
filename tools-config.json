@@ -155,6 +155,28 @@
         "io.k9s.version": "{version}"
       },
       "media_type": "application/vnd.k9s.cli"
+    },
+    "cosign": {
+      "name": "Cosign",
+      "version": "v2.5.3",
+      "description": "Container signing, verification, and storage in an OCI registry",
+      "url_pattern": "https://github.com/sigstore/cosign/releases/download/{version}/cosign-{os}-{arch}",
+      "filetype": "binary",
+      "os_mapping": {
+        "darwin": "darwin",
+        "linux": "linux"
+      },
+      "arch_mapping": {
+        "amd64": "amd64",
+        "arm64": "arm64"
+      },
+      "executable_name": "cosign",
+      "oci_annotations": {
+        "org.opencontainers.image.title": "cosign",
+        "org.opencontainers.image.description": "Cosign {version}",
+        "io.sigstore.cosign.version": "{version}"
+      },
+      "media_type": "application/vnd.sigstore.cosign"
     }
   },
   "artifact": {
