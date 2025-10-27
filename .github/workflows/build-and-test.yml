@@ -80,7 +80,7 @@ jobs:
           ./bin/build.sh
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tools-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
           path: build/${{ matrix.platform.os }}-${{ matrix.platform.arch }}/
